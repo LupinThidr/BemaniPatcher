@@ -16,7 +16,7 @@ def patches(poffset, off, on, pcount):
         print(f"    patches: [{{ offset: 0x{poffset}, off: {poff}, on: {pon} }}],")
         print("},")
     else:
-        print(f"        {{ offset: 0x{hex(find)[2:].upper()}, off: {poff}, on: {pon} }},")
+        print(f"        {{ offset: 0x{poffset}, off: {poff}, on: {pon} }},")
 
 def union(on, name, tooltip):
 
@@ -29,7 +29,8 @@ def union(on, name, tooltip):
     print(f"            patch : {pon},")
     print("        },")
  
-
+def tohex(val, nbits):
+    return hex((val + (1 << nbits)) % (1 << nbits))
 
 with open('bm2dx.dll', 'r+b') as bm2dx:
         mm = mmap.mmap(bm2dx.fileno(), 0)
@@ -65,7 +66,7 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
             find = mm.find(str.encode('listb_'), mm.tell())+0x5
             mm.seek(find)
             if (hex(mm.tell()-2)[2:].upper()) not in listb and int(mm.tell()-2) > 1000:
-                patches(hex(mm.tell()-2)[2:].upper(), "5F", "00", 2)
+                patches(hex(mm.tell())[2:].upper(), "5F", "00", 2)
                 listb.append(hex(mm.tell()-2)[2:].upper())
                 patched = True
             else:
@@ -126,15 +127,28 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
             mm.seek(mm.tell()-1)
             patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "90E9", 1)
 
-#        title("Shim Lightning Mode IO (for spicetools)", None)
-#        print(f"    patches: [")
-#        find = mm.find((b'\xFF\x8B\x50\x08\x83\xEA\x01\x0F\x84\x5F\x05'), 0)+0x7
-#        mm.seek(find)
-#        if mm.read(1).hex().upper() == "0F":
-#            patches(hex(mm.tell()-2)[2:].upper(), "0F84", "90E9", 2)
-#        find = mm.find((b'\x90\x48\x8B\x08\x48\x89\x4D'), 0)-0x4
-#        print("    ]")
-#        print("},")
+
+        find = mm.find((b'\xB0\x01\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x48\x89\x4C\x24\x08'), 0)+16
+        mm.seek(find)
+        tdj = pe.get_rva_from_offset(mm.tell())
+
+        title("Shim Lightning Mode IO (for spicetools)", None)
+        print(f"    patches: [")
+        find = mm.find((b'\x00\x48\xC7\x45\x20\xFE\xFF\xFF\xFF\x48\x89'), 0)
+        mm.seek(find)
+        find = mm.find((b'\x0F\x84'), mm.tell())
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "90E9", 2)
+        # Range may change
+        for _ in range(5):
+            find = mm.find((b'\x00\x00\x00\xE8'), mm.tell()+3)
+            mm.seek(find)
+        mm.seek(mm.tell()+4)
+        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-tdj+4), 32)[2:]).upper()
+        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), result, 2)
+        print("    ]")
+        print("},")
 
 
         title("Lightning Mode Camera Crash Fix (for spicetools)", None)
@@ -250,17 +264,81 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         mm.seek(find)
         patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "81", 1)
 
+        title("Unscramble Touch Screen Keypad in TDJ", None)
+        find = mm.find((b'\x4D\x03\xC8\x49\xF7\xF1\x89'), 0)
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
+
+        title("Enable 1P Premium Free", None)
+        find = mm.find((b'\xFF\x84\xC0\x75\x14\xE8'), 0)+3
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 1)
+
+        title("Enable 2P Premium Free", None)
+        print(f"    patches: [")
+        for _ in range(7):
+            find = mm.find((b'\x74'), mm.tell()+1)
+            mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
+        find = mm.find((b'\x74'), mm.tell())
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
+        print("    ]")
+
+        title("Enable ARENA", None)
+        print(f"    patches: [")
+        for _ in range(2):
+            find = mm.find((b'\x75'), mm.tell()+1)
+            mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
+        find = mm.find((b'\x74'), mm.tell())
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
+        print("    ]")
+        print("},")
+
+        title("Enable BPL BATTLE", None)
+        find = mm.find((b'\x74'), mm.tell())
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
 
         title("WASAPI Shared Mode (with 44100Hz)", None)
         find = mm.find((b'\xE6\x01\x45\x33'), 0)+1
         mm.seek(find)
         patches(hex(mm.tell())[2:].upper(), "01", "00", 1)
 
+        title("SSE4.2 Fix", None)
+        find = mm.find((b'\x24\x24\xF3\x45\x0F\xB8\xD3\x41\x8B\xC2\x66\x44\x89\x54\x24\x22\x0F\xAF\xC2\x66'), 0)+2
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(3).hex().upper(), "909090", 1)
+
+        title("Skip Decide Screen", None)
+        find = mm.find((b'\x8B\xF8\xE8\x6B\x00\x00\x00\x48'), 0)+2
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(5).hex().upper(), "9090909090", 1)
+
+        title("Quick Retry", None)
+        find = mm.find((b'\x32\xC0\x48\x83\xC4\x20\x5B\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x0F'), 0)
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "B001", 1)
+
+        title("Disable News Sound", "Disables the sound played when news banners appear.")
+        find = mm.find((b'\x73\x79\x73\x73\x64\x5F\x6E\x65\x77\x73\x5F\x63\x75\x74\x69\x6E\x5F\x73\x65'), 0)
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(19).hex().upper(), "73797373645F64756D6D790000000000000000", 1)
+
+        title("Increase Game Volume", "Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.")
+        find = mm.find((b'\xD7\xFF\x90\x98\x00\x00\x00\x90'), 0)+1
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
 
         title("QWERTY Keyboard Layout for Song Search", "Changes the touch keyboard layout from alphabetical to QWERTY in song and artist search menu (TDJ only)")
         find = mm.find((b'\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5A\x2D'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), "4142434445464748494A4B4C4D4E4F505152535455565758595A2D", "51574552545955494F504153444647484A4B4C2D5A584356424E4D", 1)
+        try:
+            mm.seek(find)
+            patches(hex(mm.tell())[2:].upper(), "4142434445464748494A4B4C4D4E4F505152535455565758595A2D", "51574552545955494F504153444647484A4B4C2D5A584356424E4D", 1)
+        except:
+            pass
 
 
         title("Hide All Bottom Text", "Except for FREE PLAY")
@@ -377,9 +455,6 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         while mm.read(2) != b"\xCC\xCC":
             mm.seek(mm.tell()-4)
         qc = pe.get_rva_from_offset(mm.tell())
-
-        def tohex(val, nbits):
-            return hex((val + (1 << nbits)) % (1 << nbits))
 
 
         print("{")
