@@ -139,11 +139,10 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         find = mm.find((b'\x0F\x84'), mm.tell())
         mm.seek(find)
         patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "90E9", 2)
-        # Range may change
-        for _ in range(5):
-            find = mm.find((b'\x00\x00\x00\xE8'), mm.tell()+3)
-            mm.seek(find)
-        mm.seek(mm.tell()+4)
+        find = mm.find((b'\xC1\x43\x0C\x83\xF8\x01\x75\x0B\x48\x8B\x4D\x98\x48\x8B\x01'), mm.tell())
+        mm.seek(find)
+        find = mm.find((b'\x00\x00\x00\xE8'), mm.tell())
+        mm.seek(find+4)
         s = (tohex(-(pe.get_rva_from_offset(mm.tell())-tdj+4), 32)[2:]).upper()
         result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
         patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), result, 2)
@@ -284,23 +283,43 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         mm.seek(find)
         patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
         print("    ]")
+        print("},")
 
         title("Enable ARENA", None)
-        print(f"    patches: [")
         for _ in range(2):
             find = mm.find((b'\x75'), mm.tell()+1)
             mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
-        find = mm.find((b'\x74'), mm.tell())
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
+
+        title("Enable BPL BATTLE", None)
+        for _ in range(2):
+            find = mm.find((b'\x74'), mm.tell()+1)
+            mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
+
+        title("All Notes Preview 12s", None)
+        print(f"    patches: [")
+        find = mm.find((b'\x05\x00\x00\x00\x84\xC0'), 0)
         mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
+        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "0C", 2)
+        find = mm.find((b'\x05\x00\x00\x00\x84\xC0'), mm.tell())
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "0C", 2)
         print("    ]")
         print("},")
 
-        title("Enable BPL BATTLE", None)
-        find = mm.find((b'\x74'), mm.tell())
+        title("Dark Mode", None)
+        find = mm.find((b'\x10\x48\x85\xC9\x74\x10'), 0)
         mm.seek(find)
+        while mm.read(2) != b"\x84\xC0":
+            mm.seek(mm.tell()-3)
+        mm.seek(mm.tell()-2)
         patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
+
+        title("Hide Measure Lines", None)
+        find = mm.find((b'\x83\xF8\x04\x75\x37'), 0)+3
+        mm.seek(find)
+        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 1)
 
         title("WASAPI Shared Mode (with 44100Hz)", None)
         find = mm.find((b'\xE6\x01\x45\x33'), 0)+1
