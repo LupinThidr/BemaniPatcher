@@ -82,8 +82,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
             patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
 
         title("Unlock All Songs and Charts", None)
-        find = mm.find((b'\x32\xC0\x48\x8B\x74\x24\x48\x48\x83\xC4\x30\x5F\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x48'), 0)
+        find = mm.find((b'\x32\xC0\x48\x8B\x74\x24\x48\x48\x83\xC4\x30\x5F\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0)
         mm.seek(find)
+        mm.seek(mm.find((b'\x32\xC0\x48\x8B\x74\x24\x48\x48\x83\xC4\x30\x5F\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), find+1))
         if mm.read(2).hex().upper() == "32C0":
             patches(hex(mm.tell()-2)[2:].upper(), "32C0", "B001", 1)
 
@@ -275,9 +276,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
 
         title("Enable 2P Premium Free", None)
         print(f"    patches: [")
-        for _ in range(7):
-            find = mm.find((b'\x74'), mm.tell()+1)
-            mm.seek(find)
+        mm.seek(mm.find((b'\xBA\x01\x00\x00\x00'), mm.tell()))
+        while mm.read(2) != b"\x84\xC0":
+            mm.seek(mm.tell()-3)
         patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
         find = mm.find((b'\x74'), mm.tell())
         mm.seek(find)
