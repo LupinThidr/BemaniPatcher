@@ -53,6 +53,33 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         mm.seek(mm.find((b'\x40\x00\x00\x00\x00\x00\x00\x4E'), 0)+7)
         patches(mm.tell(), mm.read(1), "5E", 1)
 
+        print("{")
+        print("    type : \"union\",")
+        print("    name : \"Note FPS Target\",")
+        find = mm.find((b'\x20\x66\x0F\x6E\xF0\xF3\x0F\xE6\xF6\xF2\x0F\x59'), 0)+9
+        mm.seek(find)
+        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
+        print("    patches : [")
+        union(mm.read(15).hex().upper(), "Default", None)
+        union("909090909090B878000000F20F2AF0", "120 FPS", None)
+        union("909090909090B890000000F20F2AF0", "144 FPS", None)
+        union("909090909090B8A5000000F20F2AF0", "165 FPS", None)
+        union("909090909090B8F0000000F20F2AF0", "240 FPS", None)
+        union("909090909090B868010000F20F2AF0", "360 FPS", None)
+        print("    ]")
+        print("},")
+
+        title("Force Note FPS Target", "Enable this if above is not Default")
+        print(f"    patches: [")
+        mm.seek(mm.find((b'\x74\x09'), mm.tell()))
+        patches(mm.tell(), mm.read(2), "9090", 2)
+        while mm.read(2) != b"\x74\x5F":
+            mm.seek(mm.tell()-3)
+        mm.seek(mm.tell()-2)
+        patches(mm.tell(), mm.read(2), "9090", 2)
+        print("    ],")
+        print("},")
+
         title("Shared mode WASAPI", "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.")
         mm.seek(mm.find((b'\x90\xBA\x04\x00\x00\x00\x48\x8B\x0D'), 0)+2)
         patches(mm.tell(), mm.read(1), "00", 1)

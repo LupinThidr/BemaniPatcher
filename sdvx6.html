@@ -9,405 +9,595 @@
     <script type="text/javascript" src="js/FileSaver.min.js"></script>
     <script type="text/javascript" src="js/dllpatcher.js"></script>
     <script type="text/javascript">
-      window.addEventListener("load", function () {
-        new PatchContainer([
-          new Patcher("soundvoltex.dll", "2021-04-28", [
-            {
-              name: "Disable power change", //patch by Xyen
-              tooltip: "Prevents power mode change on startup",
-              patches: [{ offset: 0x1ec553, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Disable monitor change", //patch by Xyen
-              tooltip: "Prevents monitor setting changes on startup",
-              patches: [{ offset: 0x1ec5eb, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Force BIO2 (KFC) IO in Valkyrie mode",
-              tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
-              patches: [{ offset: 0x3f02d5, off: [0x87, 0x05], on: [0x47, 0x0c] }],	
-            },
-            {
-              name: "120Hz Support",
-              patches: [{ offset: 0x6f70fe, off: [0x4e], on: [0x5e] }],
-            },
-            {
-              name: "Shared mode WASAPI",
-              tooltip:
-                "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
-              patches: [{ offset: 0x42b089, off: [0x04], on: [0x00] }],
-            },
-            {
-              name: "Shared mode WASAPI Valkyrie",
-              patches: [{ offset: 0x42AFE7, off: [0x07], on: [0x00] }],
-            },
-            {
-              name: "Allow non E004 cards",
-              tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
-              patches: [
-                { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
-                { offset: 0xA53, off: [0x74], on: [0xEB] }
-              ],
-            },
-            {
-              name: "Timer freeze", // ikaros14
-              patches: [{ offset: 0x71166, off: [0x84], on: [0x85] }],
-            },
-            {
-              name: 'Premium timer freeze',
-              patches: [
-                { offset: 0x2F1D65, off: [0x0F, 0x85], on: [0x90, 0xE9] }, //during music select
-                { offset: 0x278819, off: [0x0F, 0x84], on: [0x90, 0xE9] }, //during song
-                { offset: 0x1CD098, off: [0x75], on: [0xEB] }, //during result screen
-              ]
-            },
-            {
-              name: "Hide premium guide banner",
-              tooltip : "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
-              patches: [{ offset: 0x20F9FD, off: [0xE7, 0x25, 0x48], on: [0x17, 0xC7, 0x43] }],
-            },
-            {
-              type: "union",
-              name: "Premium Time Length",
-              offset: 0x297996,
-              patches: [
-                {
-                  name: "Default (10 Minutes)",
-                  patch: [0x00, 0x70, 0xc9, 0xb2, 0x8b, 0x00, 0x00, 0x00],
-                },
-                {
-                  name: "20 Minutes",
-                  patch: [0x00, 0xe0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "30 Minutes",
-                  patch: [0x00, 0x50, 0x5c, 0x18, 0xa3, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "1 Hour",
-                  patch: [0x00, 0xa0, 0xb8, 0x30, 0x46, 0x03, 0x00, 0x00],
-                },
-              ],
-            },
-          ]),
-          new Patcher("soundvoltex.dll", "2021-05-18", [
-            {
-              name: "Disable power change", //patch by Xyen
-              tooltip: "Prevents power mode change on startup",
-              patches: [{ offset: 0x1ecd13, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Disable monitor change", //patch by Xyen
-              tooltip: "Prevents monitor setting changes on startup",
-              patches: [{ offset: 0x1ecdab, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Force BIO2 (KFC) IO in Valkyrie mode",
-              tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
-              patches: [{ offset: 0x3f1bd5, off: [0x87, 0x05], on: [0x47, 0x0c] }],	
-            },
-            {
-              name: "120Hz Support",
-              patches: [{ offset: 0x6fc0be, off: [0x4e], on: [0x5e] }],
-            },
-            {
-              name: "Shared mode WASAPI",
-              tooltip:
-                "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
-              patches: [{ offset: 0x42d009, off: [0x04], on: [0x00] }],
-            },
-            {
-              name: "Shared mode WASAPI Valkyrie",
-              patches: [{ offset: 0x42CF67, off: [0x07], on: [0x00] }],
-            },
-            {
-              name: "Allow non E004 cards",
-              tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
-              patches: [
-                { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
-                { offset: 0xA53, off: [0x74], on: [0xEB] }
-              ],
-            },
-            {
-              name: "Timer freeze", // ikaros14
-              patches: [{ offset: 0x713d6, off: [0x84], on: [0x85] }],
-            },
-            {
-              name: 'Premium timer freeze',
-              patches: [
-                { offset: 0x2F30A5, off: [0x0F, 0x85], on: [0x90, 0xE9] }, //during music select
-                { offset: 0x279C39, off: [0x0F, 0x84], on: [0x90, 0xE9] }, //during song
-                { offset: 0x1CD8C8, off: [0x75], on: [0xEB] }, //during result screen
-              ]
-            },
-            {
-              name: "Hide premium guide banner",
-              tooltip : "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
-              patches: [{ offset: 0x2101BD, off: [0x27, 0x5F, 0x48], on: [0x87, 0x02, 0x44] }],
-            },
-            {
-              type: "union",
-              name: "Premium Time Length",
-              offset: 0x298d16,
-              patches: [
-                {
-                  name: "Default (10 Minutes)",
-                  patch: [0x00, 0x70, 0xc9, 0xb2, 0x8b, 0x00, 0x00, 0x00],
-                },
-                {
-                  name: "20 Minutes",
-                  patch: [0x00, 0xe0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "30 Minutes",
-                  patch: [0x00, 0x50, 0x5c, 0x18, 0xa3, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "1 Hour",
-                  patch: [0x00, 0xa0, 0xb8, 0x30, 0x46, 0x03, 0x00, 0x00],
-                },
-              ],
-            },
-          ]),
-          new Patcher("soundvoltex.dll", "2021-06-16", [
-            {
-              name: "Disable power change", //patch by Xyen
-              tooltip: "Prevents power mode change on startup",
-              patches: [{ offset: 0x1ECEC3, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Disable monitor change", //patch by Xyen
-              tooltip: "Prevents monitor setting changes on startup",
-              patches: [{ offset: 0x1ECF5B, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Force BIO2 (KFC) IO in Valkyrie mode",
-              tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
-              patches: [{ offset: 0x3f37c5, off: [0x87, 0x05], on: [0x47, 0x0c] }],	
-            },
-            {
-              name: "120Hz Support",
-              patches: [{ offset: 0x70085e, off: [0x4e], on: [0x5e] }],
-            },
-            {
-              name: "Shared mode WASAPI",
-              tooltip:
-                "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
-              patches: [{ offset: 0x42EC39, off: [0x04], on: [0x00] }],
-            },
-            {
-              name: "Shared mode WASAPI Valkyrie",
-              patches: [{ offset: 0x42EB97, off: [0x07], on: [0x00] }],
-            },
-            {
-              name: "Allow non E004 cards",
-              tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
-              patches: [
-                { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
-                { offset: 0xA53, off: [0x74], on: [0xEB] }
-              ],
-            },
-            {
-              name: "Timer freeze", // ikaros14
-              patches: [{ offset: 0x71406, off: [0x84], on: [0x85] }],
-            },
-            {
-              name: 'Premium timer freeze',
-              patches: [
-                { offset: 0x2F44F5, off: [0x0F, 0x85], on: [0x90, 0xE9] }, //during music select
-                { offset: 0x27B009, off: [0x0F, 0x84], on: [0x90, 0xE9] }, //during song
-                { offset: 0x1CDA78, off: [0x75], on: [0xEB] }, //during result screen
-              ],
-            },
-            {
-              name: "Hide premium guide banner",
-              tooltip : "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
-              patches: [{ offset: 0x21093D, off: [0xEF, 0x97, 0x48], on: [0xBF, 0x3A, 0x44] }],
-            },
-            {
-              type: "union",
-              name: "Premium Time Length",
-              offset: 0x29A116,
-              patches: [
-                {
-                  name: "Default (10 Minutes)",
-                  patch: [0x00, 0x70, 0xc9, 0xb2, 0x8b, 0x00, 0x00, 0x00],
-                },
-                {
-                  name: "20 Minutes",
-                  patch: [0x00, 0xe0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "30 Minutes",
-                  patch: [0x00, 0x50, 0x5c, 0x18, 0xa3, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "1 Hour",
-                  patch: [0x00, 0xa0, 0xb8, 0x30, 0x46, 0x03, 0x00, 0x00],
-                },
-              ],
-            },
-          ]),
-          new Patcher("soundvoltex.dll", "2021-08-31", [
-            {
-              name: "Disable power change", //patch by Xyen
-              tooltip: "Prevents power mode change on startup",
-              patches: [{ offset: 0x1EE543, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Disable monitor change", //patch by Xyen
-              tooltip: "Prevents monitor setting changes on startup",
-              patches: [{ offset: 0x1EE5DB, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Force BIO2 (KFC) IO in Valkyrie mode",
-              tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
-              patches: [{ offset: 0x3F8D25, off: [0x87, 0x05], on: [0x47, 0x0c] }],	
-            },
-            {
-              name: "120Hz Support",
-              patches: [{ offset: 0x7085EE, off: [0x4e], on: [0x5e] }],
-            },
-            {
-              name: "Shared mode WASAPI",
-              tooltip:
-                "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
-              patches: [{ offset: 0x4343D9, off: [0x04], on: [0x00] }],
-            },
-            {
-              name: "Shared mode WASAPI Valkyrie",
-              patches: [{ offset: 0x434337, off: [0x07], on: [0x00] }],
-            },
-            {
-              name: "Allow non E004 cards",
-              tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
-              patches: [
-                { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
-                { offset: 0xA53, off: [0x74], on: [0xEB] }
-              ],
-            },
-            {
-              name: "Timer freeze", // ikaros14
-              patches: [{ offset: 0x71426, off: [0x84], on: [0x85] }],
-            },
-            {
-              name: 'Premium timer freeze',
-              patches: [
-                { offset: 0x2F9578, off: [0x0F, 0x85], on: [0x90, 0xE9] }, //during music select
-                { offset: 0x27FBB9, off: [0x0F, 0x84], on: [0x90, 0xE9] }, //during song
-                { offset: 0x1CEB2E, off: [0x75], on: [0xEB] }, //during result screen
-              ],
-            },
-            {
-              name: "Hide premium guide banner",
-              tooltip : "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
-              patches: [{ offset: 0x211ED9, off: [0x7B, 0xF7, 0x48], on: [0xB3, 0x95, 0x44] }],
-            },
-            {
-              type: "union",
-              name: "Premium Time Length",
-              offset: 0x29F116,
-              patches: [
-                {
-                  name: "Default (10 Minutes)",
-                  patch: [0x00, 0x70, 0xc9, 0xb2, 0x8b, 0x00, 0x00, 0x00],
-                },
-                {
-                  name: "20 Minutes",
-                  patch: [0x00, 0xe0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "30 Minutes",
-                  patch: [0x00, 0x50, 0x5c, 0x18, 0xa3, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "1 Hour",
-                  patch: [0x00, 0xa0, 0xb8, 0x30, 0x46, 0x03, 0x00, 0x00],
-                },
-              ],
-            },
-          ]),
-          new Patcher("soundvoltex.dll", "2021-10-20", [
-            {
-              name: "Disable power change", //patch by Xyen
-              tooltip: "Prevents power mode change on startup",
-              patches: [{ offset: 0x1EFA13, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Disable monitor change", //patch by Xyen
-              tooltip: "Prevents monitor setting changes on startup",
-              patches: [{ offset: 0x1EFAAB, off: [0x75], on: [0xeb] }],
-            },
-            {
-              name: "Force BIO2 (KFC) IO in Valkyrie mode",
-              tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
-              patches: [{ offset: 0x3FA835, off: [0x87, 0x05], on: [0x47, 0x0c] }],	
-            },
-            {
-              name: "120Hz Support",
-              patches: [{ offset: 0x70C4E6, off: [0x4e], on: [0x5e] }],
-            },
-            {
-              name: "Shared mode WASAPI",
-              tooltip:
-                "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
-              patches: [{ offset: 0x435F39, off: [0x04], on: [0x00] }],
-            },
-            {
-              name: "Shared mode WASAPI Valkyrie",
-              patches: [{ offset: 0x435E97, off: [0x07], on: [0x00] }],
-            },
-            {
-              name: "Allow non E004 cards",
-              tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
-              patches: [
-                { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
-                { offset: 0xA53, off: [0x74], on: [0xEB] }
-              ],
-            },
-            {
-              name: "Timer freeze", // ikaros14
-              patches: [{ offset: 0x71426, off: [0x84], on: [0x85] }],
-            },
-            {
-              name: 'Premium timer freeze',
-              patches: [
-                { offset: 0x2FACB8, off: [0x0F, 0x85], on: [0x90, 0xE9] }, //during music select
-                { offset: 0x281239, off: [0x0F, 0x84], on: [0x90, 0xE9] }, //during song
-                { offset: 0x1CF2BE, off: [0x75], on: [0xEB] }, //during result screen
-              ],
-            },
-            {
-              name: "Hide premium guide banner",
-              tooltip : "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
-              patches: [{ offset: 0x2133C9, off: [0xFB, 0x20, 0x49], on: [0x53, 0xBE, 0x44] }],
-            },
-            {
-              type: "union",
-              name: "Premium Time Length",
-              offset: 0x2A07C6,
-              patches: [
-                {
-                  name: "Default (10 Minutes)",
-                  patch: [0x00, 0x70, 0xc9, 0xb2, 0x8b, 0x00, 0x00, 0x00],
-                },
-                {
-                  name: "20 Minutes",
-                  patch: [0x00, 0xe0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "30 Minutes",
-                  patch: [0x00, 0x50, 0x5c, 0x18, 0xa3, 0x01, 0x00, 0x00],
-                },
-                {
-                  name: "1 Hour",
-                  patch: [0x00, 0xa0, 0xb8, 0x30, 0x46, 0x03, 0x00, 0x00],
-                },
-              ],
-            },
-          ]),
-        ]);
-      });
+        window.addEventListener("load", function () {
+            new PatchContainer([
+                new Patcher("soundvoltex.dll", "2021-04-28", [
+                    {
+                        name: "Disable power change",
+                        tooltip: "Prevents power mode change on startup",
+                        patches: [{ offset: 0x1EC553, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Disable monitor change",
+                        tooltip: "Prevents monitor setting changes on startup",
+                        patches: [{ offset: 0x1EC5EB, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Force BIO2 (KFC) IO in Valkyrie mode",
+                        tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
+                        patches: [{ offset: 0x3F02D5, off: [0x87, 0x05], on: [0x47, 0x0C] }],
+                    },
+                    {
+                        name: "120Hz Support",
+                        patches: [{ offset: 0x6F70FE, off: [0x4E], on: [0x5E] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Note FPS Target",
+                        offset : 0x3B8597,
+                        patches : [
+                            {
+                                name : "Default",
+                                patch : [0xF2, 0x0F, 0x59, 0x35, 0x91, 0xE8, 0x33, 0x00, 0x0F, 0x57, 0xC0, 0x66, 0x0F, 0x2E, 0xF0],
+                            },
+                            {
+                                name : "120 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x78, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "144 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x90, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "165 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xA5, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "240 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xF0, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "360 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x68, 0x01, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                        ]
+                    },
+                    {
+                        name: "Force Note FPS Target",
+                        tooltip: "Enable this if above is not Default",
+                        patches: [
+                            { offset: 0x3B85A6, off: [0x74, 0x09], on: [0x90, 0x90] },
+                            { offset: 0x3B8550, off: [0x74, 0x5F], on: [0x90, 0x90] },
+                        ],
+                    },
+                    {
+                        name: "Shared mode WASAPI",
+                        tooltip: "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
+                        patches: [{ offset: 0x42B089, off: [0x04], on: [0x00] }],
+                    },
+                    {
+                        name: "Shared mode WASAPI Valkyrie",
+                        patches: [{ offset: 0x42AFE7, off: [0x07], on: [0x00] }],
+                    },
+                    {
+                        name: "Allow non E004 cards",
+                        tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
+                        patches: [
+                            { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
+                            { offset: 0xA53, off: [0x74], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Timer freeze",
+                        patches: [{ offset: 0x71166, off: [0x84], on: [0x85] }],
+                    },
+                    {
+                        name: "Premium timer freeze",
+                        patches: [
+                            { offset: 0x2F1D65, off: [0x0F, 0x85], on: [0x90, 0xE9] },
+                            { offset: 0x278819, off: [0x0F, 0x84], on: [0x90, 0xE9] },
+                            { offset: 0x1CD098, off: [0x75], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Hide premium guide banner",
+                        tooltip: "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
+                        patches: [{ offset: 0x20F9FD, off: [0xE7, 0x25, 0x48], on: [0x17, 0xC7, 0x43] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Premium Time Length",
+                        offset : 0x297996,
+                        patches : [
+                            {
+                                name : "Default (10 Minutes)",
+                                patch : [0x00, 0x70, 0xC9, 0xB2, 0x8B, 0x00, 0x00, 0x00],
+                            },
+                            {
+                                name : "20 Minutes",
+                                patch : [0x00, 0xE0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "30 Minutes",
+                                patch : [0x00, 0x50, 0x5C, 0x18, 0xA3, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "1 Hour",
+                                patch : [0x00, 0xA0, 0xB8, 0x30, 0x46, 0x03, 0x00, 0x00],
+                            },
+                        ]
+                    },
+                ]),
+                new Patcher("soundvoltex.dll", "2021-05-18", [
+                    {
+                        name: "Disable power change",
+                        tooltip: "Prevents power mode change on startup",
+                        patches: [{ offset: 0x1ECD13, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Disable monitor change",
+                        tooltip: "Prevents monitor setting changes on startup",
+                        patches: [{ offset: 0x1ECDAB, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Force BIO2 (KFC) IO in Valkyrie mode",
+                        tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
+                        patches: [{ offset: 0x3F1BD5, off: [0x87, 0x05], on: [0x47, 0x0C] }],
+                    },
+                    {
+                        name: "120Hz Support",
+                        patches: [{ offset: 0x6FC0BE, off: [0x4E], on: [0x5E] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Note FPS Target",
+                        offset : 0x3B9D87,
+                        patches : [
+                            {
+                                name : "Default",
+                                patch : [0xF2, 0x0F, 0x59, 0x35, 0x49, 0x28, 0x34, 0x00, 0x0F, 0x57, 0xC0, 0x66, 0x0F, 0x2E, 0xF0],
+                            },
+                            {
+                                name : "120 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x78, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "144 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x90, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "165 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xA5, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "240 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xF0, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "360 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x68, 0x01, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                        ]
+                    },
+                    {
+                        name: "Force Note FPS Target",
+                        tooltip: "Enable this if above is not Default",
+                        patches: [
+                            { offset: 0x3B9D96, off: [0x74, 0x09], on: [0x90, 0x90] },
+                            { offset: 0x3B9D40, off: [0x74, 0x5F], on: [0x90, 0x90] },
+                        ],
+                    },
+                    {
+                        name: "Shared mode WASAPI",
+                        tooltip: "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
+                        patches: [{ offset: 0x42D009, off: [0x04], on: [0x00] }],
+                    },
+                    {
+                        name: "Shared mode WASAPI Valkyrie",
+                        patches: [{ offset: 0x42CF67, off: [0x07], on: [0x00] }],
+                    },
+                    {
+                        name: "Allow non E004 cards",
+                        tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
+                        patches: [
+                            { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
+                            { offset: 0xA53, off: [0x74], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Timer freeze",
+                        patches: [{ offset: 0x713D6, off: [0x84], on: [0x85] }],
+                    },
+                    {
+                        name: "Premium timer freeze",
+                        patches: [
+                            { offset: 0x2F30A5, off: [0x0F, 0x85], on: [0x90, 0xE9] },
+                            { offset: 0x279C39, off: [0x0F, 0x84], on: [0x90, 0xE9] },
+                            { offset: 0x1CD8C8, off: [0x75], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Hide premium guide banner",
+                        tooltip: "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
+                        patches: [{ offset: 0x2101BD, off: [0x27, 0x5F, 0x48], on: [0x87, 0x02, 0x44] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Premium Time Length",
+                        offset : 0x298D16,
+                        patches : [
+                            {
+                                name : "Default (10 Minutes)",
+                                patch : [0x00, 0x70, 0xC9, 0xB2, 0x8B, 0x00, 0x00, 0x00],
+                            },
+                            {
+                                name : "20 Minutes",
+                                patch : [0x00, 0xE0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "30 Minutes",
+                                patch : [0x00, 0x50, 0x5C, 0x18, 0xA3, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "1 Hour",
+                                patch : [0x00, 0xA0, 0xB8, 0x30, 0x46, 0x03, 0x00, 0x00],
+                            },
+                        ]
+                    },
+                ]),
+                new Patcher("soundvoltex.dll", "2021-06-16", [
+                    {
+                        name: "Disable power change",
+                        tooltip: "Prevents power mode change on startup",
+                        patches: [{ offset: 0x1ECEC3, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Disable monitor change",
+                        tooltip: "Prevents monitor setting changes on startup",
+                        patches: [{ offset: 0x1ECF5B, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Force BIO2 (KFC) IO in Valkyrie mode",
+                        tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
+                        patches: [{ offset: 0x3F37C5, off: [0x87, 0x05], on: [0x47, 0x0C] }],
+                    },
+                    {
+                        name: "120Hz Support",
+                        patches: [{ offset: 0x70085E, off: [0x4E], on: [0x5E] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Note FPS Target",
+                        offset : 0x3BB5D7,
+                        patches : [
+                            {
+                                name : "Default",
+                                patch : [0xF2, 0x0F, 0x59, 0x35, 0x99, 0x4F, 0x34, 0x00, 0x0F, 0x57, 0xC0, 0x66, 0x0F, 0x2E, 0xF0],
+                            },
+                            {
+                                name : "120 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x78, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "144 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x90, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "165 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xA5, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "240 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xF0, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "360 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x68, 0x01, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                        ]
+                    },
+                    {
+                        name: "Force Note FPS Target",
+                        tooltip: "Enable this if above is not Default",
+                        patches: [
+                            { offset: 0x3BB5E6, off: [0x74, 0x09], on: [0x90, 0x90] },
+                            { offset: 0x3BB590, off: [0x74, 0x5F], on: [0x90, 0x90] },
+                        ],
+                    },
+                    {
+                        name: "Shared mode WASAPI",
+                        tooltip: "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
+                        patches: [{ offset: 0x42EC39, off: [0x04], on: [0x00] }],
+                    },
+                    {
+                        name: "Shared mode WASAPI Valkyrie",
+                        patches: [{ offset: 0x42EB97, off: [0x07], on: [0x00] }],
+                    },
+                    {
+                        name: "Allow non E004 cards",
+                        tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
+                        patches: [
+                            { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
+                            { offset: 0xA53, off: [0x74], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Timer freeze",
+                        patches: [{ offset: 0x71406, off: [0x84], on: [0x85] }],
+                    },
+                    {
+                        name: "Premium timer freeze",
+                        patches: [
+                            { offset: 0x2F44F5, off: [0x0F, 0x85], on: [0x90, 0xE9] },
+                            { offset: 0x27B009, off: [0x0F, 0x84], on: [0x90, 0xE9] },
+                            { offset: 0x1CDA78, off: [0x75], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Hide premium guide banner",
+                        tooltip: "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
+                        patches: [{ offset: 0x21093D, off: [0xEF, 0x97, 0x48], on: [0xBF, 0x3A, 0x44] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Premium Time Length",
+                        offset : 0x29A116,
+                        patches : [
+                            {
+                                name : "Default (10 Minutes)",
+                                patch : [0x00, 0x70, 0xC9, 0xB2, 0x8B, 0x00, 0x00, 0x00],
+                            },
+                            {
+                                name : "20 Minutes",
+                                patch : [0x00, 0xE0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "30 Minutes",
+                                patch : [0x00, 0x50, 0x5C, 0x18, 0xA3, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "1 Hour",
+                                patch : [0x00, 0xA0, 0xB8, 0x30, 0x46, 0x03, 0x00, 0x00],
+                            },
+                        ]
+                    },
+                ]),
+                new Patcher("soundvoltex.dll", "2021-08-31", [
+                    {
+                        name: "Disable power change",
+                        tooltip: "Prevents power mode change on startup",
+                        patches: [{ offset: 0x1EE543, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Disable monitor change",
+                        tooltip: "Prevents monitor setting changes on startup",
+                        patches: [{ offset: 0x1EE5DB, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Force BIO2 (KFC) IO in Valkyrie mode",
+                        tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
+                        patches: [{ offset: 0x3F8D25, off: [0x87, 0x05], on: [0x47, 0x0C] }],
+                    },
+                    {
+                        name: "120Hz Support",
+                        patches: [{ offset: 0x7085EE, off: [0x4E], on: [0x5E] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Note FPS Target",
+                        offset : 0x3C0AE7,
+                        patches : [
+                            {
+                                name : "Default",
+                                patch : [0xF2, 0x0F, 0x59, 0x35, 0x19, 0x82, 0x34, 0x00, 0x0F, 0x57, 0xC0, 0x66, 0x0F, 0x2E, 0xF0],
+                            },
+                            {
+                                name : "120 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x78, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "144 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x90, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "165 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xA5, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "240 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xF0, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "360 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x68, 0x01, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                        ]
+                    },
+                    {
+                        name: "Force Note FPS Target",
+                        tooltip: "Enable this if above is not Default",
+                        patches: [
+                            { offset: 0x3C0AF6, off: [0x74, 0x09], on: [0x90, 0x90] },
+                            { offset: 0x3C0AA0, off: [0x74, 0x5F], on: [0x90, 0x90] },
+                        ],
+                    },
+                    {
+                        name: "Shared mode WASAPI",
+                        tooltip: "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
+                        patches: [{ offset: 0x4343D9, off: [0x04], on: [0x00] }],
+                    },
+                    {
+                        name: "Shared mode WASAPI Valkyrie",
+                        patches: [{ offset: 0x434337, off: [0x07], on: [0x00] }],
+                    },
+                    {
+                        name: "Allow non E004 cards",
+                        tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
+                        patches: [
+                            { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
+                            { offset: 0xA53, off: [0x74], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Timer freeze",
+                        patches: [{ offset: 0x71426, off: [0x84], on: [0x85] }],
+                    },
+                    {
+                        name: "Premium timer freeze",
+                        patches: [
+                            { offset: 0x2F9578, off: [0x0F, 0x85], on: [0x90, 0xE9] },
+                            { offset: 0x27FBB9, off: [0x0F, 0x84], on: [0x90, 0xE9] },
+                            { offset: 0x1CEB2E, off: [0x75], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Hide premium guide banner",
+                        tooltip: "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
+                        patches: [{ offset: 0x211ED9, off: [0x7B, 0xF7, 0x48], on: [0xB3, 0x95, 0x44] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Premium Time Length",
+                        offset : 0x29F116,
+                        patches : [
+                            {
+                                name : "Default (10 Minutes)",
+                                patch : [0x00, 0x70, 0xC9, 0xB2, 0x8B, 0x00, 0x00, 0x00],
+                            },
+                            {
+                                name : "20 Minutes",
+                                patch : [0x00, 0xE0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "30 Minutes",
+                                patch : [0x00, 0x50, 0x5C, 0x18, 0xA3, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "1 Hour",
+                                patch : [0x00, 0xA0, 0xB8, 0x30, 0x46, 0x03, 0x00, 0x00],
+                            },
+                        ]
+                    },
+                ]),
+                new Patcher("soundvoltex.dll", "2021-10-20", [
+                    {
+                        name: "Disable power change",
+                        tooltip: "Prevents power mode change on startup",
+                        patches: [{ offset: 0x1EFA13, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Disable monitor change",
+                        tooltip: "Prevents monitor setting changes on startup",
+                        patches: [{ offset: 0x1EFAAB, off: [0x75], on: [0xEB] }],
+                    },
+                    {
+                        name: "Force BIO2 (KFC) IO in Valkyrie mode",
+                        tooltip: "Will only work with <spec __type=\"str\">F</spec> changed to either G or H, in ea3-config.xml.",
+                        patches: [{ offset: 0x3FA835, off: [0x87, 0x05], on: [0x47, 0x0C] }],
+                    },
+                    {
+                        name: "120Hz Support",
+                        patches: [{ offset: 0x70C4E6, off: [0x4E], on: [0x5E] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Note FPS Target",
+                        offset : 0x3C2607,
+                        patches : [
+                            {
+                                name : "Default",
+                                patch : [0xF2, 0x0F, 0x59, 0x35, 0xF1, 0xA7, 0x34, 0x00, 0x0F, 0x57, 0xC0, 0x66, 0x0F, 0x2E, 0xF0],
+                            },
+                            {
+                                name : "120 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x78, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "144 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x90, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "165 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xA5, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "240 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0xF0, 0x00, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                            {
+                                name : "360 FPS",
+                                patch : [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xB8, 0x68, 0x01, 0x00, 0x00, 0xF2, 0x0F, 0x2A, 0xF0],
+                            },
+                        ]
+                    },
+                    {
+                        name: "Force Note FPS Target",
+                        tooltip: "Enable this if above is not Default",
+                        patches: [
+                            { offset: 0x3C2616, off: [0x74, 0x09], on: [0x90, 0x90] },
+                            { offset: 0x3C25C0, off: [0x74, 0x5F], on: [0x90, 0x90] },
+                        ],
+                    },
+                    {
+                        name: "Shared mode WASAPI",
+                        tooltip: "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.",
+                        patches: [{ offset: 0x435F39, off: [0x04], on: [0x00] }],
+                    },
+                    {
+                        name: "Shared mode WASAPI Valkyrie",
+                        patches: [{ offset: 0x435E97, off: [0x07], on: [0x00] }],
+                    },
+                    {
+                        name: "Allow non E004 cards",
+                        tooltip: "Allows cards that do not have E004 card IDs (such as mifare cards) to work.",
+                        patches: [
+                            { offset: 0xA4B, off: [0x75, 0x12], on: [0x90, 0x90] },
+                            { offset: 0xA53, off: [0x74], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Timer freeze",
+                        patches: [{ offset: 0x71426, off: [0x84], on: [0x85] }],
+                    },
+                    {
+                        name: "Premium timer freeze",
+                        patches: [
+                            { offset: 0x2FACB8, off: [0x0F, 0x85], on: [0x90, 0xE9] },
+                            { offset: 0x281239, off: [0x0F, 0x84], on: [0x90, 0xE9] },
+                            { offset: 0x1CF2BE, off: [0x75], on: [0xEB] },
+                        ],
+                    },
+                    {
+                        name: "Hide premium guide banner",
+                        tooltip: "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr",
+                        patches: [{ offset: 0x2133C9, off: [0xFB, 0x20, 0x49], on: [0x53, 0xBE, 0x44] }],
+                    },
+                    {
+                        type : "union",
+                        name : "Premium Time Length",
+                        offset : 0x2A07C6,
+                        patches : [
+                            {
+                                name : "Default (10 Minutes)",
+                                patch : [0x00, 0x70, 0xC9, 0xB2, 0x8B, 0x00, 0x00, 0x00],
+                            },
+                            {
+                                name : "20 Minutes",
+                                patch : [0x00, 0xE0, 0x92, 0x65, 0x17, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "30 Minutes",
+                                patch : [0x00, 0x50, 0x5C, 0x18, 0xA3, 0x01, 0x00, 0x00],
+                            },
+                            {
+                                name : "1 Hour",
+                                patch : [0x00, 0xA0, 0xB8, 0x30, 0x46, 0x03, 0x00, 0x00],
+                            },
+                        ]
+                    },
+                ]),
+            ]);
+        });
     </script>
   </head>
   <body>
