@@ -28,7 +28,9 @@ def union(on, name, tooltip):
         print(f'            tooltip : "{tooltip}",')
     print(f"            patch : {pon},")
     print("        },")
- 
+
+def tohex(val, nbits):
+    return hex((val + (1 << nbits)) % (1 << nbits))
 
 
 with open('soundvoltex.dll', 'r+b') as soundvoltex:
@@ -44,10 +46,14 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         patches(mm.tell(), mm.read(1), "EB", 1)
 
         title("Force BIO2 (KFC) IO in Valkyrie mode", "Will only work with <spec __type=\\\"str\\\">F</spec> changed to either G or H, in ea3-config.xml.")
+        mm.seek(mm.find((b'\x18\x48\x8B\xF1\x83\xB9\x98\x00\x00\x00\x00'), 0))
+        while mm.read(1) != b"\xC3":
+            mm.seek(mm.tell()-2)
+        io = pe.get_rva_from_offset(mm.tell())
         mm.seek(mm.find((b'\x4E\x0C\x00\x00\x48'), 0)+7)
-        #Fix this to actually calculate the on value because it will eventually change
-        #Refer to premium guide banner below
-        patches(mm.tell(), mm.read(2), "470C", 1)
+        s = tohex(-(pe.get_rva_from_offset(mm.tell())-io+4), 32)[2:].upper()
+        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        patches(mm.tell(), mm.read(2), result, 1)
 
         title("120Hz Support", None)
         mm.seek(mm.find((b'\x40\x00\x00\x00\x00\x00\x00\x4E'), 0)+7)
@@ -105,7 +111,7 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         print(f"    patches: [")
         mm.seek(mm.find((b'\x06\x0F\x85\x84\x00\x00\x00\x8B'), 0)+1)
         patches(mm.tell(), mm.read(2), "90E9", 2)
-        mm.seek(mm.find((b'\x00\x0F\x84\x83\x00\x00\x00\x8B\x05'), 0)+1)
+        mm.seek(mm.find((b'\x00\x0F\x84\x83\x00\x00\x00\x8B\x05'), 0x190000)+1)
         patches(mm.tell(), mm.read(2), "90E9", 2)
         mm.seek(mm.find((b'\x20\x01\x00\x00\xC6\x80\xE9'), 0))
         mm.seek(mm.find((b'\x75\x0D\xE8'), mm.tell()))
@@ -113,17 +119,14 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         print("    ],")
         print("},")
 
-        def tohex(val, nbits):
-            return hex((val + (1 << nbits)) % (1 << nbits))
-
+        title("Hide premium guide banner", "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr")
         mm.seek(mm.find(str.encode('pt_sousa_usr'), 0))
         pt = pe.get_rva_from_offset(mm.tell())
-
-        title("Hide premium guide banner", "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr")
         mm.seek(mm.find((b'\x00\x44\x89\x44\x24\x28\x48\x8D\x45'), 0))
-        mm.seek(mm.find((b'\x24\x00\x45\x33\xC0\x48\x8D\x15'), mm.tell()+1))
-        mm.seek(mm.find((b'\x24\x00\x45\x33\xC0\x48\x8D\x15'), mm.tell()+1))
-        mm.seek(mm.find((b'\x24\x00\x45\x33\xC0\x48\x8D\x15'), mm.tell()+1)+8)
+        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
+        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
+        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
+        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1)+6)
         s = tohex(-(pe.get_rva_from_offset(mm.tell())-pt+4), 32)[2:].upper()
         result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
         patches(mm.tell(), mm.read(3), result, 1)
