@@ -1,5 +1,6 @@
 import mmap
 import pefile
+import struct
 
 def title(name, tooltip):
     print("{")
@@ -55,23 +56,28 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
         patches(mm.tell(), mm.read(2), result, 1)
 
-        title("120Hz Support", None)
-        mm.seek(mm.find((b'\x40\x00\x00\x00\x00\x00\x00\x4E'), 0)+7)
-        patches(mm.tell(), mm.read(1), "5E", 1)
+        print("{")
+        print("    type : \"union\",")
+        print("    name : \"Game FPS Target\",")
+        mm.seek(mm.find((b'\x40\x00\x00\x00\x00\x00\x00\x4E'), 0)+6)
+        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
+        print("    patches : [")
+        union(mm.read(2).hex().upper(), "Default", None)
+        fps = (120, 144, 165, 240, 360)
+        for value in fps:
+            union(f"{struct.pack('d', value).hex().upper()[10:-2]}", f"{value} FPS", None)
+        print("    ]")
+        print("},")
 
         print("{")
         print("    type : \"union\",")
         print("    name : \"Note FPS Target\",")
-        find = mm.find((b'\x20\x66\x0F\x6E\xF0\xF3\x0F\xE6\xF6\xF2\x0F\x59'), 0)+9
-        mm.seek(find)
+        mm.seek(mm.find((b'\x20\x66\x0F\x6E\xF0\xF3\x0F\xE6\xF6\xF2\x0F\x59'), 0)+9)
         print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
         print("    patches : [")
         union(mm.read(15).hex().upper(), "Default", None)
-        union("909090909090B878000000F20F2AF0", "120 FPS", None)
-        union("909090909090B890000000F20F2AF0", "144 FPS", None)
-        union("909090909090B8A5000000F20F2AF0", "165 FPS", None)
-        union("909090909090B8F0000000F20F2AF0", "240 FPS", None)
-        union("909090909090B868010000F20F2AF0", "360 FPS", None)
+        for value in fps:
+            union(f"909090909090B8{struct.pack('i', value).hex().upper()}F20F2AF0", f"{value} FPS", None)
         print("    ]")
         print("},")
 
@@ -137,9 +143,13 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         mm.seek(mm.find((b'\xB8\x00\x70\xC9\xB2\x8B\x00\x00\x00\x48'), 0)+1)
         print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
         print("    patches : [")
-        union(mm.read(8).hex().upper(), "Default (10 Minutes)", None)
-        union("00E0926517010000", "20 Minutes", None)
-        union("00505C18A3010000", "30 Minutes", None)
-        union("00A0B83046030000", "1 Hour", None)
+        def premium(seconds, name, tip):
+            result = seconds*1000000000 if seconds != 0 else 6666666
+            union(f"{struct.pack('q', result).hex().upper()}", name, tip)
+        for seconds in (0, 1, 817, 3450):
+            m, s = divmod(seconds, 60)
+            premium(seconds, f'{m:02d}:{s:02d}', "Use with freeze")
+        for minutes in (10, 15, 20, 30, 45, 60, 90):
+            premium(minutes*60, f"{minutes} Minutes", "Default" if minutes == 10 else None)
         print("    ]")
         print("},")
