@@ -28,7 +28,9 @@ def union(on, name, tooltip):
         print(f'            tooltip : "{tooltip}",')
     print(f"            patch : {pon},")
     print("        },")
- 
+
+def tohex(val, nbits):
+    return hex((val + (1 << nbits)) % (1 << nbits))
 
 
 with open('gamemdx.dll', 'r+b') as gamemdx:
@@ -217,4 +219,53 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
         union("B805000000", "Force LCD ADE-6291 p4io timing", None)
         union("B806000000", "Force LCD ADE-6291 bio2 timing", None)
         print("    ]")
+        print("},")
+
+        title("Center arrows for single player", None)
+        print(f"    patches: [")
+        mm.seek(mm.find((b'\x7C\x24\x48\x39\x02\x75\x14'), 0)+5)
+        patches(mm.tell(), mm.read(1), "EB", 2)
+        mm.seek(mm.find((b'\x75\x05\xB8'), mm.tell()))
+        patches(mm.tell(), mm.read(2), "9090", 2)
+
+        # freeze_judge
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell()))
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x4C\x24\x1C'), mm.tell()))
+        freeze = pe.get_rva_from_offset(mm.tell())
+        mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0))
+        cc = pe.get_rva_from_offset(mm.tell())
+        s = tohex((cc - freeze - 5), 32)[2:]
+        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x4C\x24\x1C'), mm.tell()))
+        patches(mm.tell(), mm.read(7), f"E9{result}9090", 2)
+        s = tohex((freeze - (cc + 0x15) + 0x9), 32)[2:]
+        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0))
+        patches(mm.tell(), mm.read(19), f"83C40C8D4C241C36C701EF010000E9{result}00", 2)
+
+        # arrow
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), 0)+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell()))
+        arrow = pe.get_rva_from_offset(mm.tell())
+        mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), cc))
+        cc2 = pe.get_rva_from_offset(mm.tell())
+        s = tohex((cc2 - arrow - 5), 32)[2:]
+        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), 0)+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell())+1)
+        mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), mm.tell()))
+        patches(mm.tell(), mm.read(7), f"E9{result}9090", 2)
+        s = tohex((arrow - (cc2 + 0x15) + 0x9), 32)[2:]
+        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), cc))
+        patches(mm.tell(), mm.read(19), f"83C40C8D44241C36C700EF010000E9{result}00", 2)
+        print("    ],")
         print("},")
