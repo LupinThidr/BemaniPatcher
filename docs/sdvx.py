@@ -109,6 +109,27 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         print("    ],")
         print("},")
 
+        title("Unlock All Songs", None)
+        print(f"    patches: [")
+        mm.seek(mm.find((b'\xEB\x05\x33\xC9'), 0))
+        patches(mm.tell(), mm.read(54), "909033C9B80300000090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090", 2)
+        mm.seek(mm.find((b'\x44\x0F\xB6\x74'), 0))
+        patches(mm.tell(), mm.read(6), "41BE03000000", 2)
+        print("    ],")
+        print("},")
+
+        title("Uncensor album jackets (for K region only)", None)
+        mm.seek(mm.find(str.encode('jacket_mask'), 0)+8)
+        patches(mm.tell(), mm.read(1), "75", 1)
+
+        title("Hide all bottom text", None)
+        mm.seek(mm.find(str.encode('credit_service'), 0)+0x16)
+        patches(mm.tell(), mm.read(0x192), "00"*0x192, 1)
+
+        title("Disable subscreen in Valkyrie mode", None)
+        mm.seek(mm.find((b'\x83\xBD\xB8\x00\x00\x00\x02\x41\x0F\x93\xC6\x44\x88\x74\x24\x51'), 0))
+        patches(mm.tell(), mm.read(16), "41B60044887424519090909090909090", 1)
+
         title("Timer freeze", None)
         mm.seek(mm.find((b'\x00\x8B\x83\x80\x00\x00\x00\x85\xC0\x0F\x84'), 0)+10)
         patches(mm.tell(), mm.read(1), "85", 1)

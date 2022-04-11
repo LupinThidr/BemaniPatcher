@@ -1,5 +1,6 @@
 import mmap
 import pefile
+import struct
 
 def title(name, tooltip):
     print("{")
@@ -241,8 +242,12 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
         patches(mm.tell(), mm.read(7), f"E9{result}9090", 2)
         s = tohex((freeze - (cc + 0x15) + 0x9), 32)[2:]
         result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        if len(result) == 3*2:
+            result = result+'00'
+        elif len(result) == 2*2:
+            result = result+'0000'
         mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0))
-        patches(mm.tell(), mm.read(19), f"83C40C8D4C241C36C701EF010000E9{result}00", 2)
+        patches(mm.tell(), mm.read(19), f"83C40C8D4C241C36C701EF010000E9{result}", 2)
 
         # arrow
         mm.seek(mm.find((b'\x83\xC4\x0C\x8D\x44\x24\x1C'), 0)+1)
@@ -265,7 +270,22 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
         patches(mm.tell(), mm.read(7), f"E9{result}9090", 2)
         s = tohex((arrow - (cc2 + 0x15) + 0x9), 32)[2:]
         result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
+        if len(result) == 3*2:
+            result = result+'00'
+        elif len(result) == 2*2:
+            result = result+'0000'
         mm.seek(mm.find((b'\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), cc))
-        patches(mm.tell(), mm.read(19), f"83C40C8D44241C36C700EF010000E9{result}00", 2)
+        patches(mm.tell(), mm.read(19), f"83C40C8D44241C36C700EF010000E9{result}", 2)
         print("    ],")
+        print("},")
+
+        print("{")
+        print("    type : \"union\",")
+        print("    name : \"Fullscreen FPS Target\",")
+        mm.seek(mm.find((b'\xC7\x84\x24\x84\x00\x00\x00\x3C\x00\x00\x00'), 0)+7)
+        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
+        print("    patches : [")
+        for value in (60, 120, 144, 165, 240, 360):
+            union(struct.pack('i', value).hex().upper(), f"{value} FPS", "Default" if value == 60 else None)
+        print("    ]")
         print("},")
