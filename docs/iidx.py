@@ -75,8 +75,10 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         print("},")
 
         title("Cursor Lock", None)
-        find = mm.find((b'\x05\x00\x84\xC0\x74\x1F\xE8'), 0)+0x4
+        find = mm.find((b'\x08\x8B\xD8\xE8'), 0)
         mm.seek(find)
+        find = mm.find((b'\x84\xC0\x74'), mm.tell())
+        mm.seek(find+2)
         if mm.read(1).hex().upper() == "74":
             mm.seek(mm.tell()-1)
             patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
@@ -270,7 +272,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
 
         title("Enable 1P Premium Free", None)
-        find = mm.find((b'\xFF\x84\xC0\x75\x14\xE8'), 0)+3
+        find = mm.find((b'\x48\x89\x44\x24\x50\x33\xFF'), 0)
+        mm.seek(find)
+        find = mm.find((b'\xFF\x84\xC0\x75\x14\xE8'), mm.tell())+3
         mm.seek(find)
         patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 1)
 
