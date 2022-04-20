@@ -118,6 +118,26 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         print("    ],")
         print("},")
 
+        title("Unlock All Difficulties", None)
+        mm.seek(mm.find((b'\x00\x00\xC7\x40\x30\x04\x00\x00\x00\xE8'), 0))
+        mm.seek(mm.find((b'\x00\x00\x75'), mm.tell())+2)
+        patches(mm.tell(), mm.read(1), "EB", 1)
+
+        title("Enable S-CRITICAL in Light Start", "Only in Valkyrie mode")
+        print(f"    patches: [")
+        mm.seek(mm.find((b'\xA8\x00\x00\x00\x48\x83\xC4\x20\x5B\xC3\x48\x83\xEC\x28'), 0))
+        mm.seek(mm.find((b'\x00\x00\x74'), mm.tell())+2)
+        patches(mm.tell(), mm.read(2), "9090", 2)
+        mm.seek(mm.find((b'\x74\x20\x48'), mm.tell()))
+        patches(mm.tell(), mm.read(2), "9090", 2)
+        start = mm.tell()
+        mm.seek(mm.find((b'\x00\x00\x74\x04'), mm.tell())+2)
+        end = mm.tell()
+        if end-start < 0xE00:
+            patches(mm.tell(), mm.read(2), "9090", 2)
+        print("    ],")
+        print("},")
+
         title("Uncensor album jackets (for K region only)", None)
         mm.seek(mm.find(str.encode('jacket_mask'), 0)+8)
         patches(mm.tell(), mm.read(1), "75", 1)
@@ -173,4 +193,41 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         for minutes in (10, 15, 20, 30, 45, 60, 90):
             premium(minutes*60, f"{minutes} Minutes", "Default" if minutes == 10 else None)
         print("    ]")
+        print("},")
+
+        title("SDVX PLUS", None)
+        print(f"    patches: [")
+        mm.seek(mm.find((b'\x76\x04\x44\x89\x51\x18'), 0)+2)
+        patches(mm.tell(), mm.read(4), "90909090", 2)
+        mm.seek(mm.find((b'\x00\x48\x8B\xDA\x4C\x8B\xF1\x48\x8D'), 0))
+        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
+        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
+        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
+        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
+        patches(mm.tell(), mm.read(6), "41C646055890", 2)
+        mm.seek(mm.find(str.encode('/data/others/music_db.xml'), 0)+1)
+        patches(mm.tell(), mm.read(4), "706C7573", 2)
+        mm.seek(mm.find(str.encode('/data/music'), 0)+1)
+        patches(mm.tell(), mm.read(4), "706C7573", 2)
+        mm.seek(mm.find(str.encode('game_bg/gmbg_edp2016.ifs'), 0))
+        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F656470323031362E696673000000", 2)
+        mm.seek(mm.find(str.encode('game_bg/gmbg_kac5th_small.ifs'), 0))
+        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6B61633574685F732E6966730000", 2)
+        mm.seek(mm.find(str.encode('game_bg/gmbg_omega18_maxma.ifs'), 0))
+        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D65676131385F6D2E69667300", 2)
+        mm.seek(mm.find(str.encode('game_bg/gmbg_omega_nianoa.ifs'), 0))
+        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D6567615F6E2E696673000000", 2)
+        mm.seek(mm.find((b'\x73\x5F\x6A\x61\x63\x6B\x65\x74\x30'), 0))
+        for n in range(1, 20):
+            try:
+                mm.seek(mm.find(str.encode(f's_jacket{str(n).zfill(2)}.ifs'), 0)+8)
+                if mm.tell() > 0x1000:
+                    patches(mm.tell(), mm.read(2), "3030", 2)
+            except ValueError:
+                continue
+        mm.seek(mm.find(str.encode('game_bg/gmbg_diver_02_rishna.ifs'), 0))
+        patches(mm.tell(), mm.read(0x28), "2E2E2F2E2E2F706C75732F672F676D62675F64697665725F30325F726973686E612E696673000000", 2)
+        mm.seek(mm.find(str.encode('game_bg/gmbg_omega_inoten.ifs'), 0))
+        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D6567615F696E6F2E69667300", 2)
+        print("    ],")
         print("},")
