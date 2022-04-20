@@ -147,8 +147,10 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
         patches(mm.tell(), mm.read(0x192), "00"*0x192, 1)
 
         title("Disable subscreen in Valkyrie mode", None)
-        mm.seek(mm.find((b'\x83\xBD\xB8\x00\x00\x00\x02\x41\x0F\x93\xC6\x44\x88\x74\x24\x51'), 0))
-        patches(mm.tell(), mm.read(16), "41B60044887424519090909090909090", 1)
+        mm.seek(mm.find((b'\x83\xBD\xB8\x00\x00\x00\x02'), 0)+15)
+        rsp_offset = mm.read(1)
+        mm.seek(mm.tell()-16)
+        patches(mm.tell(), mm.read(16), f"41B60044887424{rsp_offset.hex()}9090909090909090", 1)
 
         title("Timer freeze", None)
         mm.seek(mm.find((b'\x00\x8B\x83\x80\x00\x00\x00\x85\xC0\x0F\x84'), 0)+10)
