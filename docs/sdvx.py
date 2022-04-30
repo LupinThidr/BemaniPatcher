@@ -111,8 +111,11 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
 
         title("Unlock All Songs", None)
         print(f"    patches: [")
-        mm.seek(mm.find((b'\xEB\x05\x33\xC9'), 0))
-        patches(mm.tell(), mm.read(54), "909033C9B80300000090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090", 2)
+        mm.seek(mm.find((b'\x74\x26\x83'), 0)+1)
+        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell())+1)
+        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell())+1)
+        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell()))
+        patches(mm.tell(), mm.read(2), "EB1F", 2)
         mm.seek(mm.find((b'\x44\x0F\xB6\x74'), 0))
         patches(mm.tell(), mm.read(6), "41BE03000000", 2)
         print("    ],")
