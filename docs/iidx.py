@@ -1,591 +1,480 @@
 import mmap
 import pefile
+import struct
 
-def title(name, tooltip):
+
+def title(name, tooltip = None):
     print("{")
     print(f'    name: "{name}",')
     if tooltip is not None:
         print(f'    tooltip: "{tooltip}",')
 
-def patches(poffset, off, on, pcount):
 
-    poff = '[%s]' % ', '.join(map(str, ["0x"+(off[i:i+2]) for i in range(0, len(off), 2)]))
-    pon = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2]) for i in range(0, len(off), 2)]))
+def find_pattern(pattern, start = 0, adjust = 0):
+    return mm.seek(mm.find(tobytes(pattern), start) + adjust)
 
-    if pcount == 1:
-        print(f"    patches: [{{ offset: 0x{poffset}, off: {poff}, on: {pon} }}],")
+
+def patch_if_match(off, on):
+    off = off.replace(" ", "")
+    off_len = int(len(off) / 2)
+    if mm.read(off_len).hex().upper() == off.upper():
+        mm.seek(pos() - off_len)
+        patch(on)
+    else:
+        mm.seek(pos() - off_len)
+
+
+def patch(on, single = True):
+    offset = pos()
+    on = on.replace(" ", "")
+    off = mm.read(int(len(on) / 2))
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
+    off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
+    if single:
+        print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
         print("},")
     else:
-        print(f"        {{ offset: 0x{poffset}, off: {poff}, on: {pon} }},")
+        print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
 
-def union(on, name, tooltip):
 
-    pon = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2]) for i in range(0, len(on), 2)]))
+def start():
+    print(f"    patches: [")
 
+
+def end():
+    print("    ]")
+    print("},")
+
+
+def union(on, name, tooltip = None):
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
     print("        {")
     print(f'            name : "{name}",')
     if tooltip is not None:
         print(f'            tooltip : "{tooltip}",')
-    print(f"            patch : {pon},")
+    print(f"            patch : {on_formatted},")
     print("        },")
- 
-def tohex(val, nbits):
-    return hex((val + (1 << nbits)) % (1 << nbits))
+
+
+def tobytes(val):
+    return bytes.fromhex(val.replace(" ", ""))
+
+
+def pos():
+    return mm.tell()
+
 
 with open('bm2dx.dll', 'r+b') as bm2dx:
-        mm = mmap.mmap(bm2dx.fileno(), 0)
-        pe = pefile.PE('bm2dx.dll', fast_load=True)
+    mm = mmap.mmap(bm2dx.fileno(), 0)
+    pe = pefile.PE('bm2dx.dll', fast_load=True)
 
 
-        title("Standard/Menu Timer Freeze", None)
-        find = mm.find((b'\xFF\xFF\x43\x58\x83\x7B\x50\x01\x7E\x03\xFF\x43\x5C\x48\x8D\x4B\x70\xE8'), 0)+0x20
-        mm.seek(find)
-        if mm.read(2).hex().upper() == "0F84":
-            patches(hex(mm.tell()-2)[2:].upper(), "0F84", "90E9", 1)
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "74":
-            patches(hex(mm.tell()-1)[2:].upper(), "74", "EB", 1)
+    title("Standard/Menu Timer Freeze")
+    find_pattern("FF FF 43 58 83 7B 50 01 7E 03 FF 43 5C 48 8D 4B 70 E8", 0x40000, 32)
+    patch_if_match("0F 84", "90 E9")
+    patch_if_match("74", "EB")
 
-        title("Premium Free Timer Freeze", None)
-        find = mm.find((b'\x40\x53\x48\x83\xEC\x20\x83\x79\x14\x00\x48\x8B\xD9\x7E'), 0)+0xD
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "7E":
-            patches(hex(mm.tell()-1)[2:].upper(), "7E", "EB", 1)
 
-        title("Hide Time Limit Display on Results Screen", None)
-        find = mm.find((b'\xFF\x33\xED\x84\xC0\x0F\x84'), 0)+0x3
-        mm.seek(find)
-        if mm.read(2).hex().upper() == "84C0":
-            patches(hex(mm.tell()-2)[2:].upper(), "84C0", "9090", 1)
+    title("Premium Free Timer Freeze")
+    find_pattern("40 53 48 83 EC 20 83 79 14 00 48 8B D9 7E", 0x300000, 13)
+    patch("EB")
 
-        title("Hide Background Color Banners on Song List", None)
-        print(f"    patches: [")
-        listb = []
-        patched = True
-        while patched:
-            find = mm.find(str.encode('listb_'), mm.tell())+0x5
-            mm.seek(find)
-            if (hex(mm.tell()-2)[2:].upper()) not in listb and int(mm.tell()-2) > 1000:
-                patches(hex(mm.tell())[2:].upper(), "5F", "00", 2)
-                listb.append(hex(mm.tell()-2)[2:].upper())
-                patched = True
-            else:
-                patched = False
-        print("    ],")
-        print("},")
 
-        title("Cursor Lock", None)
-        find = mm.find((b'\x08\x8B\xD8\xE8'), 0)
-        mm.seek(find)
-        find = mm.find((b'\x84\xC0\x74'), mm.tell())
-        mm.seek(find+2)
-        if mm.read(1).hex().upper() == "74":
-            mm.seek(mm.tell()-1)
-            patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
+    title("Hide Time Limit Display on Results Screen")
+    find_pattern("FF 33 ED 84 C0 0F 84", 0x350000, 3)
+    patch("90 90")
 
-        title("Unlock All Songs and Charts", None)
-        find = mm.find((b'\x32\xC0\x48\x8B\x74\x24\x48\x48\x83\xC4\x30\x5F\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0)
-        mm.seek(find)
-        mm.seek(mm.find((b'\x32\xC0\x48\x8B\x74\x24\x48\x48\x83\xC4\x30\x5F\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), find+1))
-        if mm.read(2).hex().upper() == "32C0":
-            patches(hex(mm.tell()-2)[2:].upper(), "32C0", "B001", 1)
 
-        title("CS-style Song Start Delay", 
-        "Holding Start will pause the song at the beginning until you release it")
+    title("Hide Background Color Banners on Song List")
+    start()
+    while True:
+        find_pattern("6C 69 73 74 62 5F", pos(), 5)
+        if int(pos() - 2) > 1000:
+            patch("00", False)
+        else:
+            break
+    end()
+
+
+    title("Cursor Lock")
+    find_pattern("08 8B D8 E8", 0x250000)
+    find_pattern("84 C0 74", pos(), 2)
+    patch("90 90")
+
+
+    title("Unlock All Songs and Charts")
+    find_pattern("32 C0 48 8B 74 24 48 48 83 C4 30 5F C3 CC CC CC CC CC CC CC", 0x250000)
+    find_pattern("32 C0 48 8B 74 24 48 48 83 C4 30 5F C3 CC CC CC CC CC CC CC", pos() + 1)
+    patch("B0 01")
+
+
+    title("CS-style Song Start Delay", "Holding Start will pause the song at the beginning until you release it")
+    try:
+        find_pattern("48 8B 01 48 8B D9 8B", 0x500000)
+        find_pattern("7D", pos())
+        patch("90 90")
+    except ValueError:
         try:
-            find = mm.find((b'\x48\x8B\x01\x48\x8B\xD9\x8B'), 0)
-            mm.seek(find)
-            while mm.read(1) != b"\x7D":
-                mm.seek(mm.tell())
-            mm.seek(mm.tell()-1)
-            if mm.read(1).hex().upper() == "7D":
-                mm.seek(mm.tell()-1)
-                patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-        except:
-            try:
-                find = mm.find((b'\x48\x83\xEC\x20\x48\x8B\x11'), 0)
-                mm.seek(find)
-                while mm.read(1) != b"\x7D":
-                    mm.seek(mm.tell())
-                mm.seek(mm.tell()-1)
-                if mm.read(1).hex().upper() == "7D":
-                    mm.seek(mm.tell()-1)
-                    patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-            except:
-                pass
-
-
-        title("Show Lightning Model Folder in LDJ",
-        "This folder is normally exclusive to TDJ mode")
-        find = mm.find((b'\x44\x39\x60\x08\x75'), 0)+0x4
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "75":
-            mm.seek(mm.tell()-1)
-            patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-
-        title("Bypass Lightning Monitor Error", None)
-        find = mm.find((b'\x0F\x85\xDF\x00\x00\x00\xF3'), 0)
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "0F":
-            mm.seek(mm.tell()-1)
-            patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "90E9", 1)
-
-
-        find = mm.find((b'\xB0\x01\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x48\x89\x4C\x24\x08'), 0)+16
-        mm.seek(find)
-        tdj = pe.get_rva_from_offset(mm.tell())
-
-        title("Shim Lightning Mode IO (for spicetools)", None)
-        print(f"    patches: [")
-        find = mm.find((b'\x00\x48\xC7\x45\x20\xFE\xFF\xFF\xFF\x48\x89'), 0)
-        mm.seek(find)
-        find = mm.find((b'\x0F\x84'), mm.tell())
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "90E9", 2)
-        find = mm.find((b'\xC1\x43\x0C\x83\xF8\x01\x75\x0B\x48\x8B\x4D\x98\x48\x8B\x01'), mm.tell())
-        mm.seek(find)
-        find = mm.find((b'\x00\x00\x00\xE8'), mm.tell())
-        mm.seek(find+4)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-tdj+4), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), result, 2)
-        print("    ]")
-        print("},")
-
-
-        title("Lightning Mode Camera Crash Fix (for spicetools)", None)
-        find = mm.find((b'\xFF\x0F\x84\x8D\x00\x00\x00'), 0)+0x1
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
-
-        title("Force LDJ Software Video Decoder for All Boot Modes", None)
-        find = mm.find((b'\xFF\x0F\x84\x8D\x00\x00\x00'), 0)-0x3
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "02":
-            mm.seek(mm.tell()-1)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "05", 1)
-
-
-        title("Force Custom Timing and Adapter Mode in LDJ (Experimental)", "Enable this if the patch below is not default")
-        print(f"    patches: [")
-        find = mm.find((b'\x0F\x5B\xF6\x75\x0C'), 0)+0x3
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 2)
-        find = mm.find((b'\xB8\x3C\x00\x00\x00\x74\x03'), 0)+0x5
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
-        print("    ]")
-        print("},")
-
-
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Choose Custom LDJ Timing/Adapter FPS\",")
-        find = mm.find((b'\xDB\x3C\x00\x00\x00\xC7'), 0)+0x1
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(2).hex().upper(), "60 FPS", "Default")
-        union("7800", "120 FPS", "Lightning")
-        union("9000", "144 FPS", None)
-        union("A500", "165 FPS", None)
-        union("F000", "240 FPS", None)
-        union("6801", "360 FPS", None)
-        print("    ]")
-        print("},")
-
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Choose Custom TDJ Timing/Adapter FPS\",")
-        find = mm.find((b'\xC7\x45\xDB\x78\x00\x00\x00'), 0)
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(36).hex().upper(), "120 FPS", "Default")
-        union("C745DB90000000C7450B02000000488B45D74889450FC745D701000000C745DB90000000", "144 FPS", None)
-        union("C745DBA5000000C7450B02000000488B45D74889450FC745D701000000C745DBA5000000", "165 FPS", None)
-        union("C745DBF0000000C7450B02000000488B45D74889450FC745D701000000C745DBF0000000", "240 FPS", None)
-        union("C745DB68010000C7450B02000000488B45D74889450FC745D701000000C745DB68010000", "360 FPS", None)
-        print("    ]")
-        print("},")
-
-
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Choose Fullscreen Monitor Check FPS Target\",")
-        print("    tooltip : \"Match with the two patches above if >120\",")
-        find = mm.find((b'\x78\x00\x00\x00\xC7\x45'), 0)
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(2).hex().upper(), "120 FPS", "Default")
-        union("9000", "144 FPS", None)
-        union("A500", "165 FPS", None)
-        union("F000", "240 FPS", None)
-        union("6801", "360 FPS", None)
-        print("    ]")
-        print("},")
-
-        title("Skip Monitor Check", None)
-        find = mm.find((b'\x39\x87\x88\x00\x00\x00\x0F\x8C'), 0)+0x7
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "8D", 1)
-
-
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Choose Skip Monitor Check FPS\",")
-        find = mm.find((b'\x44\x8B\x91\x48\x0B\x00\x00\x44\x8B\xCA\x4C\x8B\xD9\x41\x81\xC2\x67\x01\x00\x00\xB8\xB7\x60\x0B\xB6\x0F\x57'), 0)
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(27).hex().upper(), "Default", None)
-        union("48B80000000000005E4066480F6EC0F20F58C8C3CCCCCCCCCCCCCC", "120.0000 FPS", None)
-        union("48B8000000000000624066480F6EC0F20F58C8C3CCCCCCCCCCCCCC", "144.0000 FPS", None)
-        union("48B8986E1283C0A2644066480F6EC0F20F58C8C3CCCCCCCCCCCCCC", "165.0860 FPS", None)
-        union("48B80000000000006E4066480F6EC0F20F58C8C3CCCCCCCCCCCCCC", "240.0000 FPS", None)
-        union("48B8000000000080764066480F6EC0F20F58C8C3CCCCCCCCCCCCCC", "360.0000 FPS", None)
-        print("    ]")
-        print("},")
-
-
-        print("{")
-        print("    type : \"number\",")
-        print("    name : \"Monitor Adjust Offset\",")
-        find = mm.find((b'\x80\x01\x00\x00\x00\x0A\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'), 0)+0x5
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    size : 4,")
-        print("    min : -1000,")
-        print("    max : 1000,")
-        print("},")
-
-
-        title("Skip CAMERA DEVICE ERROR Prompt", "Prevents the CAMERA DEVICE ERROR message from popping up on boot")
-        find = mm.find((b'\x0F\x84\xAA\x00\x00\x00\xB9\x3C'), 0)+0x1
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "81", 1)
-
-        title("Unscramble Touch Screen Keypad in TDJ", None)
-        find = mm.find((b'\x4D\x03\xC8\x49\xF7\xF1\x89'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
-
-        title("Enable 1P Premium Free", None)
-        find = mm.find((b'\x48\x89\x44\x24\x50\x33\xFF'), 0)
-        mm.seek(find)
-        find = mm.find((b'\xFF\x84\xC0\x75\x14\xE8'), mm.tell())+3
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 1)
-
-        title("Enable 2P Premium Free", None)
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\xBA\x01\x00\x00\x00'), mm.tell()))
-        while mm.read(2) != b"\x84\xC0":
-            mm.seek(mm.tell()-3)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
-        find = mm.find((b'\x74'), mm.tell())
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
-        print("    ]")
-        print("},")
-
-        title("Enable ARENA", None)
-        for _ in range(2):
-            find = mm.find((b'\x75'), mm.tell()+1)
-            mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-
-        title("Enable BPL BATTLE", None)
-        for _ in range(2):
-            find = mm.find((b'\x74'), mm.tell()+1)
-            mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-
-        title("All Notes Preview 12s", None)
-        print(f"    patches: [")
-        find = mm.find((b'\x05\x00\x00\x00\x84\xC0'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "0C", 2)
-        find = mm.find((b'\x05\x00\x00\x00\x84\xC0'), mm.tell())
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "0C", 2)
-        print("    ]")
-        print("},")
-
-        title("Dark Mode", None)
-        find = mm.find((b'\x10\x48\x85\xC9\x74\x10'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\x84\xC0":
-            mm.seek(mm.tell()-3)
-        mm.seek(mm.tell()-2)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 1)
-
-        title("Hide Measure Lines", None)
-        find = mm.find((b'\x83\xF8\x04\x75\x37'), 0)+3
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "EB", 1)
-
-        title("WASAPI Shared Mode (with 44100Hz)", None)
-        find = mm.find((b'\xE6\x01\x45\x33'), 0)+1
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), "01", "00", 1)
-
-        title("SSE4.2 Fix", None)
-        find = mm.find((b'\x24\x24\xF3\x45\x0F\xB8\xD3\x41\x8B\xC2\x66\x44\x89\x54\x24\x22\x0F\xAF\xC2\x66'), 0)+2
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(3).hex().upper(), "909090", 1)
-
-        title("Skip Decide Screen", None)
-        find = mm.find((b'\x8B\xF8\xE8\x6B\x00\x00\x00\x48'), 0)+2
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(5).hex().upper(), "9090909090", 1)
-
-        title("Quick Retry", None)
-        find = mm.find((b'\x32\xC0\x48\x83\xC4\x20\x5B\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x0F'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "B001", 1)
-
-        title("Disable News Sound", "Disables the sound played when news banners appear.")
-        find = mm.find((b'\x73\x79\x73\x73\x64\x5F\x6E\x65\x77\x73\x5F\x63\x75\x74\x69\x6E\x5F\x73\x65'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(19).hex().upper(), "73797373645F64756D6D790000000000000000", 1)
-
-        title("Increase Game Volume", "Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.")
-        find = mm.find((b'\xD7\xFF\x90\x98\x00\x00\x00\x90'), 0)+1
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(6).hex().upper(), "909090909090", 1)
-
-        title("QWERTY Keyboard Layout for Song Search", "Changes the touch keyboard layout from alphabetical to QWERTY in song and artist search menu (TDJ only)")
-        find = mm.find((b'\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5A\x2D'), 0)
-        try:
-            mm.seek(find)
-            patches(hex(mm.tell())[2:].upper(), "4142434445464748494A4B4C4D4E4F505152535455565758595A2D", "51574552545955494F504153444647484A4B4C2D5A584356424E4D", 1)
-        except:
+            find_pattern("48 83 EC 20 48 8B 11", 0x350000)
+            find_pattern("7D", pos())
+            patch("90 90")
+        except ValueError:
             pass
 
 
-        title("Hide All Bottom Text", "Except for FREE PLAY")
-        find = mm.find((b'\x43\x52\x45\x44\x49\x54\x3A\x20\x25\x64\x20\x43\x4F\x49\x4E\x3A\x20\x25\x64\x20\x2F\x20\x25\x64\x00\x00\x00\x00\x00\x00\x00\x00\x43\x52\x45\x44\x49\x54\x3A\x20\x25\x64\x00\x00\x00\x00\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x4E\x4F\x54\x20\x41\x56\x41\x49\x4C\x41\x42\x4C\x45\x00\x00\x00\x45\x58\x54\x52\x41\x20\x50\x41\x53\x45\x4C\x49\x3A\x20\x25\x64\x00\x00\x00\x00\x00\x00\x00\x00\x45\x58\x54\x52\x41\x20\x50\x41\x53\x45\x4C\x49\x3A\x20\x25\x73\x00\x00\x00\x00\x00\x00\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x25\x64\x00\x00\x00\x00\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x25\x73\x00\x00\x00\x00\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x2A\x2A\x2A\x2A\x2A\x2A\x00\x00\x20\x2B\x20\x25\x64\x00\x00\x00\x20\x2B\x20\x25\x73\x00\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x4E\x4F\x20\x41\x43\x43\x4F\x55\x4E\x54\x00\x00\x00\x00\x00\x00\x49\x4E\x53\x45\x52\x54\x20\x43\x4F\x49\x4E\x5B\x53\x5D\x00\x00\x50\x41\x53\x45\x4C\x49\x3A\x20\x2A\x2A\x2A\x2A\x2A\x2A\x20\x2B\x20\x30\x30\x30\x30\x30\x00\x00\x43\x52\x45\x44\x49\x54\x3A\x20\x39\x39\x20\x43\x4F\x49\x4E\x3A\x20\x39\x39\x20\x2F\x20\x31\x30'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), "4352454449543A20256420434F494E3A202564202F20256400000000000000004352454449543A202564000000000000504153454C493A204E4F5420415641494C41424C45000000455854524120504153454C493A2025640000000000000000455854524120504153454C493A2025730000000000000000504153454C493A202564000000000000504153454C493A202573000000000000504153454C493A202A2A2A2A2A2A0000202B202564000000202B202573000000504153454C493A204E4F204143434F554E54000000000000494E5345525420434F494E5B535D0000504153454C493A202A2A2A2A2A2A202B20303030303000004352454449543A20393920434F494E3A203939202F203130", "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", 1)
+    title("Show Lightning Model Folder in LDJ", "This folder is normally exclusive to TDJ mode")
+    find_pattern("44 39 60 08 75", 0x300000, 4)
+    patch("90 90")
 
 
-        # TICKER OFFSET
-        find = mm.find((b'\x41\xB8\x00\x02\x00\x00\x48\x8D\x0D'), 0)+0x6
-        mm.seek(find)
-        relative = int(pe.get_rva_from_offset(mm.tell()))
-        s = mm.read(7).hex().upper()
-        offset = int("0x"+("".join(map(str.__add__, s[-2::-2] ,s[-1::-2]))[1:-6]), 16)+0x7
-        abosulte_ticker_offset = hex(relative+offset)
-
-        # HIDDEN OFFSET
-        find = mm.find((b'\x00\x00\x00\x20\x20\x00\x00'), 0)+0x3
-        mm.seek(find)
-        hidden = pe.get_rva_from_offset(mm.tell())
+    title("Bypass Lightning Monitor Error")
+    find_pattern("0F 85 DF 00 00 00 F3", 0x350000)
+    patch("90 E9")
 
 
-        find = mm.find((b'\x44\x0F\x45\xC8\x48\x8D\x05'), 0)+0x4
-        mm.seek(find)
-        pattern_offset = (relative+offset) - int(pe.get_rva_from_offset(mm.tell()+0x7))
-        s = hex(pattern_offset)[2:]
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
+    title("Shim Lightning Mode IO (for spicetools)")
+    start()
+    find_pattern("B0 01 C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 48 89 4C 24 08", 0x500000, 16)
+    tdj = pe.get_rva_from_offset(pos())
+    find_pattern("00 48 C7 45 20 FE FF FF FF 48 89", pos())
+    find_pattern("0F 84", pos())
+    patch("90 E9", False)
+    find_pattern("C1 43 0C 83 F8 01 75 0B 48 8B 4D 98 48 8B 01", pos())
+    find_pattern("00 00 00 E8", pos(), 4)
+    patch(struct.pack('<i', tdj - pe.get_rva_from_offset(pos()) - 4).hex(), False)
+    end()
 
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Reroute FREE PLAY Text\",")
-        find = mm.find((b'\x44\x0F\x45\xC8\x48\x8D\x05'), 0)+0x7
-        mm.seek(find)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(4).hex().upper(), "FREE PLAY", "Default")
-        union(result, "Song Title/Ticker information", None)
-
-        find = mm.find((b'\x44\x0F\x45\xC8\x48\x8D\x05'), 0)+0x4
-        mm.seek(find)
-        pattern_offset = (hidden) - int(pe.get_rva_from_offset(mm.tell()+0x7))
-        s = hex(pattern_offset)[2:]
-        result = ("".join(map(str.__add__, ("00"+s)[-2::-2] ,("00"+s)[-1::-2])).upper())
-
-        find = mm.find((b'\x44\x0F\x45\xC8\x48\x8D\x05'), 0)+0x7
-        mm.seek(find)
-        union(result, "Hide", None)
-        print("    ]")
-        print("},")
+    title("Lightning Mode Camera Crash Fix (for spicetools)")
+    find_pattern("FF 0F 84 8D 00 00 00", 0x300000, 1)
+    patch("90" * 6)
 
 
-
-        find = mm.find((b'\x00\xEB\x17\x4C\x8D\x05'), 0)+0x3
-        mm.seek(find)
-        pattern_offset = (relative+offset) - int(pe.get_rva_from_offset(mm.tell()+0x7))
-        s = hex(pattern_offset)[2:]
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-
-        title("Reroute PASELI: ****** Text To Song Title/Ticker Information", None)
-        find = mm.find((b'\x00\xEB\x17\x4C\x8D\x05'), 0)+0x6
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(4).hex().upper(), result, 1)
+    title("Force LDJ Software Video Decoder for All Boot Modes", None)
+    find_pattern("FF 0F 84 8D 00 00 00", 0x350000, -3)
+    patch_if_match("02", "05")
 
 
-
-        title("Debug Mode", "While in game, press F1 to enable menu.  (Disables Profile/Score saving)")
-        find = mm.find((b'\xC3\xCC\xCC\xCC\x32\xC0\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC'), 0)+4
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "32":
-            patches(hex(mm.tell()-1)[2:].upper(), "32C0", "B001", 1)
-
-
-
-        title("Increase 'All Factory Settings' Buffer", "Enable this if the option below is not default")
-        print(f"    patches: [")
-        find = mm.find((b'\xFE\xFF\xFF\xFF\xB9\x48\x01\x00\x00\xE8'), 0)+0x5
-        mm.seek(find)
-        if mm.read(4).hex().upper() == "48010000":
-            patches(hex(mm.tell()-4)[2:].upper(), "48010000", "22611400", 2)
-        find = mm.find((b'\x48\x8B\xEA\xBA\x48\x01\x00\x00\x48'), 0)+0x4
-        mm.seek(find)
-        if mm.read(4).hex().upper() == "48010000":
-            patches(hex(mm.tell()-4)[2:].upper(), "48010000", "22611400", 2)
-        print("    ]")
-        print("},")
+    title("Force Custom Timing and Adapter Mode in LDJ (Experimental)", "Enable this if the patch below is not default")
+    start()
+    find_pattern("0F 5B F6 75 0C", 0x250000, 3)
+    patch("EB", False)
+    find_pattern("B8 3C 00 00 00 74 03", 0x250000, 5)
+    patch("90 90", False)
+    end()
 
 
-
-        #AfpViewerScene
-        find = mm.find((b'\x48\x8D\x8B\x90\x10\x10\x00\x33'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        afp = pe.get_rva_from_offset(mm.tell())
-
-        #QproViewerScene
-        find = mm.find((b'\x01\x00\x33\xC0\x48\x89\x83'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        qpro = pe.get_rva_from_offset(mm.tell())
-
-        #SoundViewerScene
-        find = mm.find((b'\x48\x89\x5C\x24\x68\x4C\x89\x33'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        soundv = pe.get_rva_from_offset(mm.tell())
-
-        #TestICCardQCScene
-        find = mm.find((b'\xFF\x48\x8D\x9F\xF8\x00'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        qc = pe.get_rva_from_offset(mm.tell())
+    fps = (60, 120, 144, 165, 240, 360)
+    print("{")
+    print('    type : "union",')
+    print('    name : "Choose Custom LDJ Timing/Adapter FPS",')
+    find_pattern("DB 3C 00 00 00 C7", 0x350000, 1)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    for val in fps:
+        packed = struct.pack('<H', val).hex().upper()
+        union(packed, f"{val} FPS", "Default" if val == 60 else "Lightning" if val == 120 else None)
+    end()
 
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Reroute 'All Factory Settings' Test Menu\",")
-        find = mm.find((b'\xFE\xFF\xFF\xFF\xB9\x48\x01\x00\x00\xE8'), 0)+0xA
-        mm.seek(find)
-        while mm.read(1) != b"\xE8":
-            mm.seek(mm.tell())
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-afp+4), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(4).hex().upper(), "TestAllFactorySettingsScene", "Default")
-        union(result, "AfpViewerScene", None)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-qpro), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        union(result, "QproViewerScene", None)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-soundv), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        union(result, "SoundViewerScene", None)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-qc), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        union(result, "TestICCardQCScene", None)
-        print("    ]")
-        print("},")
+    print("{")
+    print('    type : "union",')
+    print('    name : "Choose Custom TDJ Timing/Adapter FPS",')
+    find_pattern("C7 45 DB 78 00 00 00", 0x350000)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    for val in fps:
+        packed = struct.pack('<I', val).hex().upper()
+        union(f"C745DB{packed}C7450B02000000488B45D74889450FC745D701000000C745DB{packed}", f"{val} FPS", "Default" if val == 120 else None)
+    end()
 
 
-        #CustomizeViewerScene
-        find = mm.find((b'\x00\x33\xD2\x41\xB8\x98\x00'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        custom = pe.get_rva_from_offset(mm.tell())
-
-        #SoundRankingViewerScene
-        find = mm.find((b'\x00\x48\x89\x5C\x24\x68\x48\x89\x2B'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        soundr = pe.get_rva_from_offset(mm.tell())
-
-        #SystemSoundViewerScene
-        find = mm.find((b'\x48\x89\x44\x24\x30\x89\x74\x24\x38\x0F\x28\x44\x24\x30\x66\x0F\x7F\x44\x24\x30\x45\x33\xC9\x4C\x8D\x44\x24\x30\x48\x8B\xD7\x48\x8D\x8F\x88\x00\x00\x00\xE8'), 0)
-        mm.seek(find)
-        while mm.read(2) != b"\xCC\xCC":
-            mm.seek(mm.tell()-4)
-        system = pe.get_rva_from_offset(mm.tell())
+    print("{")
+    print('    type : "union",')
+    print('    name : "Choose Fullscreen Monitor Check FPS Target",')
+    print('    tooltip : "Match with the two patches above if >120",')
+    find_pattern("78 00 00 00 C7 45", 0x350000)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    for val in fps[1:]:
+        packed = struct.pack('<H', val).hex().upper()
+        union(packed, f"{val} FPS", "Default" if val == 120 else None)
+    end()
 
 
+    title("Skip Monitor Check", None)
+    find_pattern("39 87 88 00 00 00 0F 8C", 0x350000, 7)
+    patch("8D")
 
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Reroute 'I/O Check -> Camera Check -> 2D Code check' Test Menu\",")
-        find = mm.find((b'\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x48\x83\xEC\x38\x48\xC7\x44\x24\x20\xFE\xFF\xFF\xFF\xB9\xD0\x01\x00\x00\xE8'), 0)+30
-        mm.seek(find)
-        while mm.read(2) != b"\xC8\xE8":
-            mm.seek(mm.tell())
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-custom+4), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(4).hex().upper(), "TestIOCheckQrCheckScene", "Default")
-        union(result, "CustomizeViewerScene", None)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-soundr-1), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        union(result, "SoundRankingViewerScene", None)
-        s = (tohex(-(pe.get_rva_from_offset(mm.tell())-system-1), 32)[2:]).upper()
-        result = ("".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper())
-        union(result, "SystemSoundViewerScene", None)
-        print("    ]")
-        print("},")
+    print("{")
+    print('    type : "union",')
+    print('    name : "Choose Skip Monitor Check FPS",')
+    find_pattern("44 8B 91 48 0B 00 00 44 8B CA 4C 8B D9 41 81 C2 67 01 00 00 B8 B7 60 0B B6 0F 57", 0x350000)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    union(mm.read(27).hex().upper(), "Default")
+    for val in fps[1:]:
+        packed = struct.pack('<d', val).hex().upper()
+        union(f"48B8{packed}66480F6EC0F20F58C8C3CCCCCCCCCCCCCC", f"{val}.0000 FPS")
+    end()
 
 
-        title("Auto Play", None)
-        find = mm.find((b'\xFD\xFF\x33\xC9\xC6\x80'), 0)+10
-        mm.seek(find)
-        if mm.read(1).hex().upper() == "00":
-            patches(hex(mm.tell()-1)[2:].upper(), "00", "01", 1)
+    print("{")
+    print('    type : "number",')
+    print('    name : "Monitor Adjust Offset",')
+    find_pattern("80 01 00 00 00 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00", 0x700000, 5)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    size : 4,")
+    print("    min : -1000,")
+    print("    max : 1000,")
+    print("},")
 
 
-        title("Omnimix", None)
-        print(f"    patches: [")
-        find = mm.find((b'\xC3\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC\x40\x53\x48\x83\xEC\x20\x0F\xB6\xD9\xE8\x22\x01\x00\x00\x84\xC0\x74\x14\x0F\xB6\xCB\xE8\x16\x00\x00\x00\x84\xC0\x74\x08\xB0\x01\x48\x83\xC4\x20\x5B\xC3\x32\xC0\x48\x83\xC4\x20\x5B\xC3'), 0)
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(5).hex().upper(), "C6470558C3", 2)
-        find = mm.find((b'\x66\x39\x48\x08\x7F'), 0)+4
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "9090", 2)
-        find = mm.find(str.encode('mdata.ifs'), 0)+4
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(1).hex().upper(), "6F", 2)
-        find = mm.find(str.encode('music_data.bin'), 0)+6
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(4).hex().upper(), "6F6D6E69", 2)
-        find = mm.find(str.encode('music_title_yomi.xml'), 0)+12
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(4).hex().upper(), "6F6D6E69", 2)
-        find = mm.find(str.encode('music_artist_yomi.xml'), 0)+13
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(4).hex().upper(), "6F6D6E69", 2)
-        find = mm.find(str.encode('video_music_list.xml'), 0)+12
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(4).hex().upper(), "6F6D6E69", 2)
-        find = mm.find((b'\x7C\xED\x32\xC0\xC3'), 0)+2
-        mm.seek(find)
-        patches(hex(mm.tell())[2:].upper(), mm.read(2).hex().upper(), "B001", 2)
-        print("    ]")
-        print("},")
+    title("Skip CAMERA DEVICE ERROR Prompt", "Prevents the CAMERA DEVICE ERROR message from popping up on boot")
+    find_pattern("0F 84 AA 00 00 00 B9 3C", 0x350000, 1)
+    patch("81")
+
+
+    title("Unscramble Touch Screen Keypad in TDJ")
+    find_pattern("4D 03 C8 49 F7 F1 89", 0x400000)
+    patch("90" * 6)
+
+
+    title("Enable 1P Premium Free")
+    find_pattern("48 89 44 24 50 33 FF", 0x200000)
+    find_pattern("FF 84 C0 75 14 E8", pos(), 3)
+    patch("EB")
+
+
+    title("Enable 2P Premium Free")
+    start()
+    find_pattern("BA 01 00 00 00", pos())
+    while mm.read(2) != b"\x84\xC0":
+        mm.seek(pos() - 3)
+    patch("90 90", False)
+    find_pattern("74", pos())
+    patch("90 90", False)
+    end()
+
+
+    title("Enable ARENA")
+    find_pattern("84 C0 74", pos(), 2)
+    patch("90 90")
+
+
+    title("Enable BPL BATTLE")
+    find_pattern("74", pos())
+    patch("90 90")
+
+
+    title("All Notes Preview 12s")
+    start()
+    find_pattern("05 00 00 00 84 C0", 0x250000)
+    patch("0C", False)
+    find_pattern("05 00 00 00 84 C0", pos())
+    patch("0C", False)
+    end()
+
+
+    title("Dark Mode")
+    find_pattern("10 48 85 C9 74 10", 0x300000)
+    while mm.read(2) != b"\x84\xC0":
+        mm.seek(pos() - 3)
+    mm.seek(pos() - 2)
+    patch("90 90")
+
+
+    title("Hide Measure Lines")
+    find_pattern("83 F8 04 75 37", 0x250000, 3)
+    patch("EB")
+
+
+    title("WASAPI Shared Mode (with 44100Hz)")
+    find_pattern("E6 01 45 33", 0x90000, 1)
+    patch("00")
+
+
+    title("SSE4.2 Fix")
+    find_pattern("24 24 F3 45 0F B8 D3 41 8B C2 66 44 89 54 24 22 0F AF C2 66", 0x90000, 2)
+    patch("90" * 3)
+
+
+    title("Skip Decide Screen")
+    find_pattern("8B F8 E8 6B 00 00 00 48", 0x90000, 2)
+    patch("90" * 5)
+
+
+    title("Quick Retry")
+    find_pattern("32 C0 48 83 C4 20 5B C3 CC CC CC CC CC CC CC CC CC 0F", 0x200000)
+    patch("B0 01")
+
+
+    title("Disable News Sound", "Disables the sound played when news banners appear.")
+    find_pattern("73 79 73 73 64 5F 6E 65 77 73 5F 63 75 74 69 6E 5F 73 65", 0x600000)
+    patch("73 79 73 73 64 5F 64 75 6D 6D 79 00 00 00 00 00 00 00 00")
+
+
+    title("Increase Game Volume",
+    "Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.")
+    find_pattern("D7 FF 90 98 00 00 00 90", 0x400000, 1)
+    patch("90" * 6)
+
+
+    try:
+        find_pattern("41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F 50 51 52 53 54 55 56 57 58 59 5A 2D", 0x200000)
+        title("QWERTY Keyboard Layout for Song Search", "Changes the touch keyboard layout from alphabetical to QWERTY in song and artist search menu (TDJ only)")
+        patch("51 57 45 52 54 59 55 49 4F 50 41 53 44 46 47 48 4A 4B 4C 2D 5A 58 43 56 42 4E 4D")
+    except ValueError:
+        pass
+
+
+    title("Hide All Bottom Text", "Except for FREE PLAY")
+    find_pattern("43 52 45 44 49 54 3A 20 25 64 20 43 4F 49 4E 3A 20 25 64 20 2F 20 25 64 00 00 00 00 00 00 00 00 43 52 45 44 49 54 3A 20 25 64 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 4E 4F 54 20 41 56 41 49 4C 41 42 4C 45 00 00 00 45 58 54 52 41 20 50 41 53 45 4C 49 3A 20 25 64 00 00 00 00 00 00 00 00 45 58 54 52 41 20 50 41 53 45 4C 49 3A 20 25 73 00 00 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 25 64 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 25 73 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 2A 2A 2A 2A 2A 2A 00 00 20 2B 20 25 64 00 00 00 20 2B 20 25 73 00 00 00 50 41 53 45 4C 49 3A 20 4E 4F 20 41 43 43 4F 55 4E 54 00 00 00 00 00 00 49 4E 53 45 52 54 20 43 4F 49 4E 5B 53 5D 00 00 50 41 53 45 4C 49 3A 20 2A 2A 2A 2A 2A 2A 20 2B 20 30 30 30 30 30 00 00 43 52 45 44 49 54 3A 20 39 39 20 43 4F 49 4E 3A 20 39 39 20 2F 20 31 30", 0x600000)
+    patch("00" * 272)
+
+
+    # TICKER OFFSET
+    find_pattern("41 B8 00 02 00 00 48 8D 0D", 0x300000, 9)
+    relative = pe.get_rva_from_offset(pos())
+    offset = struct.unpack('<i', mm.read(4))[0]
+    abosulte_ticker_offset = relative + offset
+
+    # HIDDEN OFFSET
+    find_pattern("00 00 00 20 20 00 00", 0x700000, 3)
+    hidden = pe.get_rva_from_offset(pos())
+
+
+    print("{")
+    print('    type : "union",')
+    print('    name : "Reroute FREE PLAY Text",')
+    find_pattern("44 0F 45 C8 48 8D 05", 0x200000, 7)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    union(mm.read(4).hex().upper(), "FREE PLAY", "Default")
+    union(struct.pack('<i', abosulte_ticker_offset - pe.get_rva_from_offset(pos()) + 4).hex(), "Song Title/Ticker information")
+
+
+    find_pattern("44 0F 45 C8 48 8D 05", 0x200000, 7)
+    union(struct.pack('<i', hidden - pe.get_rva_from_offset(pos()) - 4).hex(), "Hide")
+    end()
+
+
+    title("Reroute PASELI: ****** Text To Song Title/Ticker Information")
+    find_pattern("00 EB 17 4C 8D 05", 0x200000, 6)
+    patch(struct.pack('<i', abosulte_ticker_offset - pe.get_rva_from_offset(pos())).hex())
+
+
+    title("Debug Mode", "While in game, press F1 to enable menu.  (Disables Profile/Score saving)")
+    find_pattern("C3 CC CC CC 32 C0 C3 CC CC CC CC CC CC CC CC CC CC CC CC CC", 0x300000, 4)
+    patch("B001")
+
+
+    title("Increase 'All Factory Settings' Buffer", "Enable this if the option below is not default")
+    start()
+    find_pattern("FE FF FF FF B9 48 01 00 00 E8", 0x300000, 5)
+    patch("22 61 14 00", False)
+    find_pattern("48 8B EA BA 48 01 00 00 48", 0x600000, 4)
+    patch("22 61 14 00", False)
+    end()
+
+
+    #AfpViewerScene
+    find_pattern("48 8D 8B 90 10 10 00 33", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 4)
+    afp = pe.get_rva_from_offset(pos())
+
+    #QproViewerScene
+    find_pattern("01 00 33 C0 48 89 83", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 4)
+    qpro = pe.get_rva_from_offset(pos())
+
+    #SoundViewerScene
+    find_pattern("48 89 5C 24 68 4C 89 33", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 4)
+    viewer = pe.get_rva_from_offset(pos())
+
+    #TestICCardQCScene
+    find_pattern("FF 48 8D 9F F8 00", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 4)
+    qc = pe.get_rva_from_offset(pos())
+
+
+    print("{")
+    print('    type : "union",')
+    print("    name : \"Reroute 'All Factory Settings' Test Menu\",")
+    find_pattern("FE FF FF FF B9 48 01 00 00 E8", 0x350000, 10)
+    find_pattern("E8", pos(), 1)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    union(mm.read(4).hex().upper(), "TestAllFactorySettingsScene", "Default")
+    here = pe.get_rva_from_offset(pos())
+    union(struct.pack('<i', afp - here).hex(), "AfpViewerScene")
+    union(struct.pack('<i', qpro - here).hex(), "QproViewerScene")
+    union(struct.pack('<i', viewer - here).hex(), "SoundViewerScene")
+    union(struct.pack('<i', qc - here).hex(), "TestICCardQCScene")
+    end()
+
+
+    #CustomizeViewerScene
+    find_pattern("00 33 D2 41 B8 98 00", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 4)
+    custom = pe.get_rva_from_offset(pos())
+
+    #SoundRankingViewerScene
+    find_pattern("00 48 89 5C 24 68 48 89 2B", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 3)
+    ranking = pe.get_rva_from_offset(pos())
+
+    #SystemSoundViewerScene
+    find_pattern("48 89 44 24 30 89 74 24 38 0F 28 44 24 30 66 0F 7F 44 24 30 45 33 C9 4C 8D 44 24 30 48 8B D7 48 8D 8F 88 00 00 00 E8", 0x250000)
+    while mm.read(2) != b"\xCC\xCC":
+        mm.seek(pos() - 3)
+    system = pe.get_rva_from_offset(pos())
+
+
+    print("{")
+    print('    type : "union",')
+    print("    name : \"Reroute 'I/O Check -> Camera Check -> 2D Code check' Test Menu\",")
+    find_pattern("C3 CC CC CC CC CC CC CC CC CC CC 48 83 EC 38 48 C7 44 24 20 FE FF FF FF B9 D0 01 00 00 E8", 0x350000)
+    find_pattern("C8 E8", pos(), 2)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    union(mm.read(4).hex().upper(), "TestIOCheckQrCheckScene", "Default")
+    here = pe.get_rva_from_offset(pos())
+    union(struct.pack('<i', custom - here).hex(), "CustomizeViewerScene")
+    union(struct.pack('<i', ranking - here).hex(), "SoundRankingViewerScene")
+    union(struct.pack('<i', system - here).hex(), "SystemSoundViewerScene")
+    end()
+
+
+    title("Auto Play", None)
+    find_pattern("FD FF 33 C9 C6 80", 0x200000, 10)
+    patch_if_match("00", "01")
+
+
+    title("Omnimix", None)
+    start()
+    find_pattern("C3 CC CC CC CC CC CC CC CC CC 40 53 48 83 EC 20 0F B6 D9 E8 22 01 00 00 84 C0 74 14 0F B6 CB E8 16 00 00 00 84 C0 74 08 B0 01 48 83 C4 20 5B C3 32 C0 48 83 C4 20 5B C3", 0x300000)
+    patch("C6 47 05 58 C3", False)
+    find_pattern("66 39 48 08 7F", 0x300000, 4)
+    patch("90 90", False)
+    find_pattern("6D 64 61 74 61 2E 69 66 73", 0x600000, 4)
+    patch("6F", False)
+    find_pattern("6D 75 73 69 63 5F 64 61 74 61 2E 62 69 6E", 0x600000, 6)
+    patch("6F 6D 6E 69", False)
+    find_pattern("6D 75 73 69 63 5F 74 69 74 6C 65 5F 79 6F 6D 69 2E 78 6D 6C", 0x600000, 12)
+    patch("6F 6D 6E 69", False)
+    find_pattern("6D 75 73 69 63 5F 61 72 74 69 73 74 5F 79 6F 6D 69 2E 78 6D 6C", 0x600000, 13)
+    patch("6F 6D 6E 69", False)
+    find_pattern("76 69 64 65 6F 5F 6D 75 73 69 63 5F 6C 69 73 74 2E 78 6D 6C", 0x600000, 12)
+    patch("6F 6D 6E 69", False)
+    find_pattern("7C ED 32 C0 C3", 0x200000, 2)
+    patch("B0 01", False)
+    end()
