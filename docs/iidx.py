@@ -2,17 +2,22 @@ import mmap
 import pefile
 import struct
 
-
 def title(name, tooltip = None):
     print("{")
     print(f'    name: "{name}",')
     if tooltip is not None:
         print(f'    tooltip: "{tooltip}",')
 
-
 def find_pattern(pattern, start = 0, adjust = 0):
     return mm.seek(mm.find(tobytes(pattern), start) + adjust)
 
+def find_pattern_backwards(pattern, start = 0, adjust = 0):
+    pattern = pattern.replace(" ", "")
+    pattern_len = int(len(pattern) / 2)
+    while mm.read(pattern_len) != tobytes(pattern):
+        mm.seek(pos() - pattern_len - 1)
+    if adjust != 0:
+        mm.seek(pos() + adjust)
 
 def patch_if_match(off, on):
     off = off.replace(" ", "")
@@ -22,7 +27,6 @@ def patch_if_match(off, on):
         patch(on)
     else:
         mm.seek(pos() - off_len)
-
 
 def patch(on, single = True):
     offset = pos()
@@ -36,15 +40,12 @@ def patch(on, single = True):
     else:
         print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
 
-
 def start():
     print(f"    patches: [")
-
 
 def end():
     print("    ]")
     print("},")
-
 
 def union(on, name, tooltip = None):
     on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
@@ -55,35 +56,28 @@ def union(on, name, tooltip = None):
     print(f"            patch : {on_formatted},")
     print("        },")
 
-
 def tobytes(val):
     return bytes.fromhex(val.replace(" ", ""))
-
 
 def pos():
     return mm.tell()
 
-
 with open('bm2dx.dll', 'r+b') as bm2dx:
     mm = mmap.mmap(bm2dx.fileno(), 0)
     pe = pefile.PE('bm2dx.dll', fast_load=True)
-
 
     title("Standard/Menu Timer Freeze")
     find_pattern("FF FF 43 58 83 7B 50 01 7E 03 FF 43 5C 48 8D 4B 70 E8", 0x40000, 32)
     patch_if_match("0F 84", "90 E9")
     patch_if_match("74", "EB")
 
-
     title("Premium Free Timer Freeze")
     find_pattern("40 53 48 83 EC 20 83 79 14 00 48 8B D9 7E", 0x300000, 13)
     patch("EB")
 
-
     title("Hide Time Limit Display on Results Screen")
     find_pattern("FF 33 ED 84 C0 0F 84", 0x350000, 3)
     patch("90 90")
-
 
     title("Hide Background Color Banners on Song List")
     start()
@@ -95,18 +89,15 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
             break
     end()
 
-
     title("Cursor Lock")
     find_pattern("08 8B D8 E8", 0x250000)
     find_pattern("84 C0 74", pos(), 2)
     patch("90 90")
 
-
     title("Unlock All Songs and Charts")
     find_pattern("32 C0 48 8B 74 24 48 48 83 C4 30 5F C3 CC CC CC CC CC CC CC", 0x250000)
     find_pattern("32 C0 48 8B 74 24 48 48 83 C4 30 5F C3 CC CC CC CC CC CC CC", pos() + 1)
     patch("B0 01")
-
 
     title("CS-style Song Start Delay", "Holding Start will pause the song at the beginning until you release it")
     try:
@@ -121,16 +112,13 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         except ValueError:
             pass
 
-
     title("Show Lightning Model Folder in LDJ", "This folder is normally exclusive to TDJ mode")
     find_pattern("44 39 60 08 75", 0x300000, 4)
     patch("90 90")
 
-
     title("Bypass Lightning Monitor Error")
     find_pattern("0F 85 DF 00 00 00 F3", 0x350000)
     patch("90 E9")
-
 
     title("Shim Lightning Mode IO (for spicetools)")
     start()
@@ -144,16 +132,13 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     patch(struct.pack('<i', tdj - pe.get_rva_from_offset(pos()) - 4).hex(), False)
     end()
 
-
     title("Lightning Mode Camera Crash Fix (for spicetools)")
     find_pattern("FF 0F 84 8D 00 00 00", 0x300000, 1)
     patch("90" * 6)
 
-
     title("Force LDJ Software Video Decoder for All Boot Modes", None)
     find_pattern("FF 0F 84 8D 00 00 00", 0x350000, -3)
     patch_if_match("02", "05")
-
 
     title("Force Custom Timing and Adapter Mode in LDJ (Experimental)", "Enable this if the patch below is not default")
     start()
@@ -162,7 +147,6 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("B8 3C 00 00 00 74 03", 0x250000, 5)
     patch("90 90", False)
     end()
-
 
     fps = (60, 120, 144, 165, 240, 360)
     print("{")
@@ -176,7 +160,6 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         union(packed, f"{val} FPS", "Default" if val == 60 else "Lightning" if val == 120 else None)
     end()
 
-
     print("{")
     print('    type : "union",')
     print('    name : "Choose Custom TDJ Timing/Adapter FPS",')
@@ -187,7 +170,6 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         packed = struct.pack('<I', val).hex().upper()
         union(f"C745DB{packed}C7450B02000000488B45D74889450FC745D701000000C745DB{packed}", f"{val} FPS", "Default" if val == 120 else None)
     end()
-
 
     print("{")
     print('    type : "union",')
@@ -201,11 +183,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         union(packed, f"{val} FPS", "Default" if val == 120 else None)
     end()
 
-
     title("Skip Monitor Check", None)
     find_pattern("39 87 88 00 00 00 0F 8C", 0x350000, 7)
     patch("8D")
-
 
     print("{")
     print('    type : "union",')
@@ -219,7 +199,6 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         union(f"48B8{packed}66480F6EC0F20F58C8C3CCCCCCCCCCCCCC", f"{val}.0000 FPS")
     end()
 
-
     print("{")
     print('    type : "number",')
     print('    name : "Monitor Adjust Offset",')
@@ -230,43 +209,35 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     print("    max : 1000,")
     print("},")
 
-
     title("Skip CAMERA DEVICE ERROR Prompt", "Prevents the CAMERA DEVICE ERROR message from popping up on boot")
     find_pattern("0F 84 AA 00 00 00 B9 3C", 0x350000, 1)
     patch("81")
 
-
     title("Unscramble Touch Screen Keypad in TDJ")
     find_pattern("4D 03 C8 49 F7 F1 89", 0x400000)
     patch("90" * 6)
-
 
     title("Enable 1P Premium Free")
     find_pattern("48 89 44 24 50 33 FF", 0x200000)
     find_pattern("FF 84 C0 75 14 E8", pos(), 3)
     patch("EB")
 
-
     title("Enable 2P Premium Free")
     start()
     find_pattern("BA 01 00 00 00", pos())
-    while mm.read(2) != b"\x84\xC0":
-        mm.seek(pos() - 3)
+    find_pattern_backwards("84 C0", pos())
     patch("90 90", False)
     find_pattern("74", pos())
     patch("90 90", False)
     end()
 
-
     title("Enable ARENA")
     find_pattern("84 C0 74", pos(), 2)
     patch("90 90")
 
-
     title("Enable BPL BATTLE")
     find_pattern("74", pos())
     patch("90 90")
-
 
     title("All Notes Preview 12s")
     start()
@@ -276,50 +247,39 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     patch("0C", False)
     end()
 
-
     title("Dark Mode")
     find_pattern("10 48 85 C9 74 10", 0x300000)
-    while mm.read(2) != b"\x84\xC0":
-        mm.seek(pos() - 3)
-    mm.seek(pos() - 2)
+    find_pattern_backwards("84 C0", pos(), -2)
     patch("90 90")
-
 
     title("Hide Measure Lines")
     find_pattern("83 F8 04 75 37", 0x250000, 3)
     patch("EB")
 
-
     title("WASAPI Shared Mode (with 44100Hz)")
     find_pattern("E6 01 45 33", 0x90000, 1)
     patch("00")
-
 
     title("SSE4.2 Fix")
     find_pattern("24 24 F3 45 0F B8 D3 41 8B C2 66 44 89 54 24 22 0F AF C2 66", 0x90000, 2)
     patch("90" * 3)
 
-
     title("Skip Decide Screen")
     find_pattern("8B F8 E8 6B 00 00 00 48", 0x90000, 2)
     patch("90" * 5)
-
 
     title("Quick Retry")
     find_pattern("32 C0 48 83 C4 20 5B C3 CC CC CC CC CC CC CC CC CC 0F", 0x200000)
     patch("B0 01")
 
-
     title("Disable News Sound", "Disables the sound played when news banners appear.")
     find_pattern("73 79 73 73 64 5F 6E 65 77 73 5F 63 75 74 69 6E 5F 73 65", 0x600000)
     patch("73 79 73 73 64 5F 64 75 6D 6D 79 00 00 00 00 00 00 00 00")
-
 
     title("Increase Game Volume",
     "Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.")
     find_pattern("D7 FF 90 98 00 00 00 90", 0x400000, 1)
     patch("90" * 6)
-
 
     try:
         find_pattern("41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F 50 51 52 53 54 55 56 57 58 59 5A 2D", 0x200000)
@@ -328,22 +288,19 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     except ValueError:
         pass
 
-
     title("Hide All Bottom Text", "Except for FREE PLAY")
     find_pattern("43 52 45 44 49 54 3A 20 25 64 20 43 4F 49 4E 3A 20 25 64 20 2F 20 25 64 00 00 00 00 00 00 00 00 43 52 45 44 49 54 3A 20 25 64 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 4E 4F 54 20 41 56 41 49 4C 41 42 4C 45 00 00 00 45 58 54 52 41 20 50 41 53 45 4C 49 3A 20 25 64 00 00 00 00 00 00 00 00 45 58 54 52 41 20 50 41 53 45 4C 49 3A 20 25 73 00 00 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 25 64 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 25 73 00 00 00 00 00 00 50 41 53 45 4C 49 3A 20 2A 2A 2A 2A 2A 2A 00 00 20 2B 20 25 64 00 00 00 20 2B 20 25 73 00 00 00 50 41 53 45 4C 49 3A 20 4E 4F 20 41 43 43 4F 55 4E 54 00 00 00 00 00 00 49 4E 53 45 52 54 20 43 4F 49 4E 5B 53 5D 00 00 50 41 53 45 4C 49 3A 20 2A 2A 2A 2A 2A 2A 20 2B 20 30 30 30 30 30 00 00 43 52 45 44 49 54 3A 20 39 39 20 43 4F 49 4E 3A 20 39 39 20 2F 20 31 30", 0x600000)
     patch("00" * 272)
-
 
     # TICKER OFFSET
     find_pattern("41 B8 00 02 00 00 48 8D 0D", 0x300000, 9)
     relative = pe.get_rva_from_offset(pos())
     offset = struct.unpack('<i', mm.read(4))[0]
-    abosulte_ticker_offset = relative + offset
+    absolute_ticker_offset = relative + offset
 
     # HIDDEN OFFSET
     find_pattern("00 00 00 20 20 00 00", 0x700000, 3)
     hidden = pe.get_rva_from_offset(pos())
-
 
     print("{")
     print('    type : "union",')
@@ -352,23 +309,19 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
     union(mm.read(4).hex().upper(), "FREE PLAY", "Default")
-    union(struct.pack('<i', abosulte_ticker_offset - pe.get_rva_from_offset(pos()) + 4).hex(), "Song Title/Ticker information")
-
+    union(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos()) + 4).hex(), "Song Title/Ticker information")
 
     find_pattern("44 0F 45 C8 48 8D 05", 0x200000, 7)
     union(struct.pack('<i', hidden - pe.get_rva_from_offset(pos()) - 4).hex(), "Hide")
     end()
 
-
     title("Reroute PASELI: ****** Text To Song Title/Ticker Information")
     find_pattern("00 EB 17 4C 8D 05", 0x200000, 6)
-    patch(struct.pack('<i', abosulte_ticker_offset - pe.get_rva_from_offset(pos())).hex())
-
+    patch(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos())).hex())
 
     title("Debug Mode", "While in game, press F1 to enable menu.  (Disables Profile/Score saving)")
     find_pattern("C3 CC CC CC 32 C0 C3 CC CC CC CC CC CC CC CC CC CC CC CC CC", 0x300000, 4)
     patch("B001")
-
 
     title("Increase 'All Factory Settings' Buffer", "Enable this if the option below is not default")
     start()
@@ -378,31 +331,25 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     patch("22 61 14 00", False)
     end()
 
-
     #AfpViewerScene
     find_pattern("48 8D 8B 90 10 10 00 33", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 4)
+    find_pattern_backwards("CC CC", pos())
     afp = pe.get_rva_from_offset(pos())
 
     #QproViewerScene
     find_pattern("01 00 33 C0 48 89 83", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 4)
+    find_pattern_backwards("CC CC", pos())
     qpro = pe.get_rva_from_offset(pos())
 
     #SoundViewerScene
     find_pattern("48 89 5C 24 68 4C 89 33", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 4)
+    find_pattern_backwards("CC CC", pos())
     viewer = pe.get_rva_from_offset(pos())
 
     #TestICCardQCScene
     find_pattern("FF 48 8D 9F F8 00", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 4)
+    find_pattern_backwards("CC CC", pos())
     qc = pe.get_rva_from_offset(pos())
-
 
     print("{")
     print('    type : "union",')
@@ -419,25 +366,20 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     union(struct.pack('<i', qc - here).hex(), "TestICCardQCScene")
     end()
 
-
     #CustomizeViewerScene
     find_pattern("00 33 D2 41 B8 98 00", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 4)
+    find_pattern_backwards("CC CC", pos())
     custom = pe.get_rva_from_offset(pos())
 
     #SoundRankingViewerScene
     find_pattern("00 48 89 5C 24 68 48 89 2B", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 3)
+    find_pattern_backwards("CC CC", pos())
     ranking = pe.get_rva_from_offset(pos())
 
     #SystemSoundViewerScene
     find_pattern("48 89 44 24 30 89 74 24 38 0F 28 44 24 30 66 0F 7F 44 24 30 45 33 C9 4C 8D 44 24 30 48 8B D7 48 8D 8F 88 00 00 00 E8", 0x250000)
-    while mm.read(2) != b"\xCC\xCC":
-        mm.seek(pos() - 3)
+    find_pattern_backwards("CC CC", pos())
     system = pe.get_rva_from_offset(pos())
-
 
     print("{")
     print('    type : "union",')
@@ -453,11 +395,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     union(struct.pack('<i', system - here).hex(), "SystemSoundViewerScene")
     end()
 
-
     title("Auto Play", None)
     find_pattern("FD FF 33 C9 C6 80", 0x200000, 10)
     patch_if_match("00", "01")
-
 
     title("Omnimix", None)
     start()
