@@ -1,13 +1,12 @@
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 # copy multiple DLLs to here with the datecode appended
 
 # x64 ddr example: `gamemdx-2022020200x64.dll`
 # everything else: `soundvoltex-2022021400.dll` etc
-
-
 
 games = [
     {
@@ -28,7 +27,13 @@ games = [
         'dll': 'bm2dx',
         'html': 'casthour.html',
     },
-        {
+    {
+        'script': 'jubeat',
+        'title': 'jubeat festo',
+        'dll': 'jubeat',
+        'html': 'jubeatfesto.html',
+    },
+    {
         'script': 'popn',
         'title': 'pop\'n music Kaimei Riddles',
         'dll': 'popn22',
@@ -41,6 +46,8 @@ games = [
         'html': 'sdvx6.html',
     },
 ]
+
+start = time.time()
 
 for g in games:
     header = (
@@ -99,3 +106,8 @@ f'''
         outfile.write(footer)
     if Path(g.get("html")).stat().st_size < 1000:
         Path(g.get("html")).unlink()
+
+end = time.time()
+
+print()
+print("Elapsed time:", end - start)
