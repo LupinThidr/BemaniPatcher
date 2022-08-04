@@ -1,6 +1,4 @@
 import mmap
-import pefile
-import struct
 
 def title(name, tooltip = None):
     print("{")
@@ -28,7 +26,6 @@ def pos():
 
 with open('jubeat.dll', 'r+b') as jubeat:
     mm = mmap.mmap(jubeat.fileno(), 0)
-    pe = pefile.PE('jubeat.dll', fast_load=True)
 
     title("Skip Tutorial")
     find_pattern("6A 01 8B C8 FF 15", 0x75000)

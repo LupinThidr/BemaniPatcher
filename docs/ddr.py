@@ -28,17 +28,28 @@ def patch_if_match(off, on):
     else:
         mm.seek(pos() - off_len)
 
-def patch(on, single = True):
+def patch(on):
     offset = pos()
-    on = on.replace(" ", "")
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
     off = mm.read(int(len(on) / 2))
     on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
     off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
-    if single:
-        print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
-        print("},")
-    else:
-        print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
+    print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
+    print("},")
+
+def patch_multi(on):
+    offset = pos()
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
+    off = mm.read(int(len(on) / 2))
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
+    off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
+    print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
 
 def start():
     print(f"    patches: [")
@@ -48,7 +59,12 @@ def end():
     print("},")
 
 def union(on, name, tooltip = None):
-    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
+    try:
+        on = on.replace(" ", "")
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
+    except TypeError:
+        on = on.hex()
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
     print("        {")
     print(f'            name : "{name}",')
     if tooltip is not None:
@@ -57,7 +73,11 @@ def union(on, name, tooltip = None):
     print("        },")
 
 def tobytes(val):
-    return bytes.fromhex(val.replace(" ", ""))
+    try:
+        return bytes.fromhex(val.replace(" ", ""))
+    except TypeError:
+        val = val.hex()
+        return bytes.fromhex(val.replace(" ", ""))
 
 def pos():
     return mm.tell()
@@ -87,28 +107,28 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     find_pattern("83 7D 08 01 BA 01 00 00 00 0F", 0x75000)
     find_pattern_backwards("CC CC CC CC CC CC", pos())
     find_pattern("32 C0", pos())
-    patch("B0 01", False)
+    patch_multi("B0 01")
     find_pattern_backwards("75", pos(), -1)
-    patch("90 90", False)
+    patch_multi("90 90")
     try:
         find_pattern("83 C4 0C 03 FE 89 7B 34", 0x75000)
         find_pattern("0F", pos())
-        patch("90 E9", False)
+        patch_multi("90 E9")
     except ValueError:
         pass
     try:
-        find_pattern("65 76 65 6E 74 6E 6F 5F 32", pos())
-        patch("62", False)
+        find_pattern(str.encode('eventno_2'), pos())
+        patch_multi("62")
     except ValueError:
         pass
-    find_pattern("65 76 65 6E 74 6E 6F 00", pos())
-    patch("62", False)
-    find_pattern("72 65 67 69 6F 6E 00", pos())
-    patch("62", False)
-    find_pattern("6C 69 6D 69 74 65 64 5F 63 68 61", pos())
-    patch("62", False)
-    find_pattern("6C 69 6D 69 74 65 64 00", pos())
-    patch("62", False)
+    find_pattern(str.encode('eventno') + b'\x00', pos())
+    patch_multi("62")
+    find_pattern(str.encode('region') + b'\x00', pos())
+    patch_multi("62")
+    find_pattern(str.encode('limited_cha'), pos())
+    patch_multi("62")
+    find_pattern(str.encode('limited') + b'\x00', pos())
+    patch_multi("62")
     end()
 
     title("Tutorial Skip")
@@ -134,7 +154,7 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     while True:
         find_pattern("04 00 00 00 00 E8", pos(), 1)
         if int(pos() -2) in range(0x1000, 0x75000):
-            patch("01", False)
+            patch_multi("01")
         else:
             break
     end()
@@ -152,9 +172,9 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     start()
     find_pattern("01 00 00 74 40 6A 34 E8")
     find_pattern("74", pos())
-    patch("90 90", False)
+    patch_multi("90 90")
     find_pattern("74", pos())
-    patch("90 90", False)
+    patch_multi("90 90")
     end()
 
     title("Force Cabinet Type 6", "Gold cab, some assets (such as menu background) may not work")
@@ -169,12 +189,12 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     "This enables the use of cabinet lighting for Cabinet Type 6")
     start()
     find_pattern("CC CC CC CC CC CC CC CC CC 53 E8", 0, 10)
-    patch("B8 00 00", False)
+    patch_multi("B8 00 00")
     find_pattern("8B 00 83 60 04 FE E8", 0x20000, 6)
-    patch("B8 00 00 00 00", False)
+    patch_multi("B8 00 00 00 00")
     find_pattern("00 80 7C 24 12 00 0F 85")
     find_pattern("E8", pos())
-    patch("B8 00 00 00 00", False)
+    patch_multi("B8 00 00 00 00")
     end()
 
     title("Enable DDR SELECTION", "Even works in offline/local mode!")
@@ -189,12 +209,12 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     title("Mute Announcer", "Also mutes crowd cheering and booing during gameplay")
     start()
     find_pattern("C6 40 85 C0 0F 84", 0x20000, 4)
-    patch("90 E9", False)
-    find_pattern(str.encode('voice.xwb').hex(), 0x100000)
-    patch("62", False)
+    patch_multi("90 E9")
+    find_pattern(str.encode('voice.xwb'), 0x100000)
+    patch_multi("62")
     try:
-        find_pattern(str.encode('voice_n.xwb').hex(), pos())
-        patch("62", False)
+        find_pattern(str.encode('voice_n.xwb'), pos())
+        patch_multi("62")
     except ValueError:
         pass
     end()
@@ -202,13 +222,13 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     title("Force DDR SELECTION theme everywhere", "Skips intro and enables the skin selected below on all songs")
     start()
     find_pattern("0F 84 F7 00 00 0057 8B FB", 0x20000)
-    patch("90 E9", False)
+    patch_multi("90 E9")
     find_pattern("C9 83 7A 10 0D 75", 0x90000, 5)
-    patch("90 90", False)
+    patch_multi("90 90")
     find_pattern("FF FF FF 83 F8 04 77", pos(), 6)
-    patch("90 90", False)
+    patch_multi("90 90")
     find_pattern("FF 24 85", pos())
-    patch("EB 11", False)
+    patch_multi("EB 11")
     end()
 
     print("{")
@@ -230,7 +250,7 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     find_pattern("88 5D F8 E8", 0x10000, 3)
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
-    union(mm.read(5).hex(), "Default")
+    union(mm.read(5), "Default")
     union("B800000000", "Force CRT 945 p3io timing")
     union("B801000000", "Force LCD 945 p3io timing")
     union("B802000000", "Force LCD HM64 p4io timing")
@@ -298,9 +318,9 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     title("Center arrows for single player")
     start()
     find_pattern("7C 24 48 39 02 75 14", 0x20000, 5)
-    patch("EB", False)
+    patch_multi("EB")
     find_pattern("75 05 B8", pos())
-    patch("90 90", False)
+    patch_multi("90 90")
     x_axis = struct.pack('<i', 495).hex()
     # freeze_judge
     find_pattern("CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC")
@@ -309,9 +329,9 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     find_pattern("83 C4 0C 8D 44 24 1C", pos())
     find_pattern("83 C4 0C 8D 4C 24 1C", pos())
     freeze = pe.get_rva_from_offset(pos())
-    patch(f"E9 {struct.pack('<i', int3_rva - freeze - 5).hex()} 90 90", False)
+    patch_multi(f"E9 {struct.pack('<i', int3_rva - freeze - 5).hex()} 90 90")
     mm.seek(int3_absolute)
-    patch(f"83 C4 0C 8D 4C 24 1C 36 C7 01 {x_axis} E9 {struct.pack('<i', freeze - int3_rva - 12).hex()}", False)
+    patch_multi(f"83 C4 0C 8D 4C 24 1C 36 C7 01 {x_axis} E9 {struct.pack('<i', freeze - int3_rva - 12).hex()}")
     # arrow
     find_pattern("CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", int3_absolute + 20)
     int3_absolute = pos()
@@ -319,9 +339,9 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     for search in range(6):
         find_pattern("83 C4 0C 8D 44 24 1C", pos() + 1)
     arrow = pe.get_rva_from_offset(pos())
-    patch(f"E9 {struct.pack('<i', int3_rva - arrow - 5).hex()} 90 90", False)
+    patch_multi(f"E9 {struct.pack('<i', int3_rva - arrow - 5).hex()} 90 90")
     mm.seek(int3_absolute)
-    patch(f"83 C4 0C 8D 44 24 1C 36 C7 00 {x_axis} E9 {struct.pack('<i', arrow - int3_rva - 12).hex()}", False)
+    patch_multi(f"83 C4 0C 8D 44 24 1C 36 C7 00 {x_axis} E9 {struct.pack('<i', arrow - int3_rva - 12).hex()}")
     end()
 
     print("{")
@@ -331,37 +351,37 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
     for fps in (60, 120, 144, 165, 240, 360):
-        union(struct.pack('<i', fps).hex(), f"{fps} FPS", "Default" if fps == 60 else None)
+        union(struct.pack('<i', fps), f"{fps} FPS", "Default" if fps == 60 else None)
     end()
 
     title("Omnimix", "v1.1")
     start()
     find_pattern("00 85 C0 74 07 E8", 0x1000, 1)
     find_pattern("00 85 C0 74 07 E8", pos(), 3)
-    patch("EB", False)
+    patch_multi("EB")
     find_pattern("83 F8 04 75 05 C6 44 24 1B 01", 0x25000)
     try:
         find_pattern("75 08 C7 44 24 20 12", pos())
-        patch("90 90 C7 44 24 20 26", False)
+        patch_multi("90 90 C7 44 24 20 26")
     except ValueError:
         find_pattern("14 00 00 00", pos())
-        patch("26", False)
+        patch_multi("26")
     find_pattern("0F 82 99 00 00 00", 0x80000)
     find_pattern("01 0F 84", pos(), 1)
-    patch("90 E9", False)
+    patch_multi("90 E9")
     find_pattern("24 74 07 83 C0 04 3B C1 75 F4 3B C1 0F 95 C0 84 C0 0F 85", 0x80000, 12)
-    patch("B0 01 90", False)
+    patch_multi("B0 01 90")
     find_pattern("FF 00 75 3E", 0x80000, 2)
-    patch("EB", False)
+    patch_multi("EB")
     find_pattern("10 57 89 85 1C FE FF FF 68 00 00 10 00 33 C0", 0x90000, 11)
-    patch("20", False)
+    patch_multi("20")
     find_pattern("68 00 00 10 00", pos(), 3)
-    patch("20", False)
+    patch_multi("20")
     find_pattern("66 66 66 3F 66 66 66 3F 66 66 66 3F 33 33 33 3F CD CC", 0x100000)
     find_pattern_backwards("80 3F", pos(), -4)
     find_pattern_backwards("80 3F", pos())
     # find_pattern("00 00 00 00 00 00", pos(), -2)    # overwrite A3 attract song defaults (add 5 more songs to attract_mcodes)
     find_pattern("5A 96 00 00 00 00 00 00", pos())    # keep A3 attract song defaults
     attract_mcodes = (10836, 37481, 33551, 32792, 397, 36865, 37202, 220, 255, 10523, 33567, 37911, 36864, 36, 36879, 28715, 454, 314, 32810)
-    patch(struct.pack('q'*len(attract_mcodes), *attract_mcodes).hex(), False)
+    patch_multi(struct.pack('q'*len(attract_mcodes), *attract_mcodes))
     end()

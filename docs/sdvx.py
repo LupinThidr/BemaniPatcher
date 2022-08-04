@@ -2,237 +2,264 @@ import mmap
 import pefile
 import struct
 
-def title(name, tooltip):
+def title(name, tooltip = None):
     print("{")
     print(f'    name: "{name}",')
     if tooltip is not None:
         print(f'    tooltip: "{tooltip}",')
 
-def patches(poffset, off, on, pcount):
+def find_pattern(pattern, start = 0, adjust = 0):
+    return mm.seek(mm.find(tobytes(pattern), start) + adjust)
 
-    poff = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex().upper()), 2)]))
-    pon = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2]) for i in range(0, len(off.hex().upper()), 2)]))
+def find_pattern_backwards(pattern, start = 0, adjust = 0):
+    pattern = pattern.replace(" ", "")
+    pattern_len = int(len(pattern) / 2)
+    while mm.read(pattern_len) != tobytes(pattern):
+        mm.seek(pos() - pattern_len - 1)
+    if adjust != 0:
+        mm.seek(pos() + adjust)
 
-    if pcount == 1:
-        print(f"    patches: [{{ offset: 0x{hex(poffset)[2:].upper()}, off: {poff}, on: {pon} }}],")
-        print("},")
+def patch_if_match(off, on):
+    off = off.replace(" ", "")
+    off_len = int(len(off) / 2)
+    if mm.read(off_len).hex().upper() == off.upper():
+        mm.seek(pos() - off_len)
+        patch(on)
     else:
-        print(f"        {{ offset: 0x{hex(poffset)[2:].upper()}, off: {poff}, on: {pon} }},")
+        mm.seek(pos() - off_len)
 
-def union(on, name, tooltip):
+def patch(on):
+    offset = pos()
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
+    off = mm.read(int(len(on) / 2))
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
+    off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
+    print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
+    print("},")
 
-    pon = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2]) for i in range(0, len(on), 2)]))
+def patch_multi(on):
+    offset = pos()
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
+    off = mm.read(int(len(on) / 2))
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
+    off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
+    print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
 
+def start():
+    print(f"    patches: [")
+
+def end():
+    print("    ]")
+    print("},")
+
+def union(on, name, tooltip = None):
+    try:
+        on = on.replace(" ", "")
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
+    except TypeError:
+        on = on.hex()
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
     print("        {")
     print(f'            name : "{name}",')
     if tooltip is not None:
         print(f'            tooltip : "{tooltip}",')
-    print(f"            patch : {pon},")
+    print(f"            patch : {on_formatted},")
     print("        },")
 
-def tohex(val, nbits):
-    return hex((val + (1 << nbits)) % (1 << nbits))
+def tobytes(val):
+    try:
+        return bytes.fromhex(val.replace(" ", ""))
+    except TypeError:
+        val = val.hex()
+        return bytes.fromhex(val.replace(" ", ""))
 
+def pos():
+    return mm.tell()
 
 with open('soundvoltex.dll', 'r+b') as soundvoltex:
-        mm = mmap.mmap(soundvoltex.fileno(), 0)
-        pe = pefile.PE('soundvoltex.dll', fast_load=True)
+    mm = mmap.mmap(soundvoltex.fileno(), 0)
+    pe = pefile.PE('soundvoltex.dll', fast_load=True)
 
-        title("Disable power change", "Prevents power mode change on startup")
-        mm.seek(mm.find((b'\x33\xDB\x85\xC0\x75\x42'), 0)+4)
-        patches(mm.tell(), mm.read(1), "EB", 1)
+    title("Disable power change", "Prevents power mode change on startup")
+    find_pattern("33 DB 85 C0 75 42", 0x100000, 4)
+    patch("EB")
 
-        title("Disable monitor change", "Prevents monitor setting changes on startup")
-        mm.seek(mm.find((b'\x00\x85\xC0\x75\x2C\xE8'), mm.tell())+3)
-        patches(mm.tell(), mm.read(1), "EB", 1)
+    title("Disable monitor change", "Prevents monitor setting changes on startup")
+    find_pattern("00 85 C0 75 2C E8", pos(), 3)
+    patch("EB")
 
-        title("Force BIO2 (KFC) IO in Valkyrie mode", "Will only work with <spec __type=\\\"str\\\">F</spec> changed to either G or H, in ea3-config.xml.")
-        mm.seek(mm.find((b'\x18\x48\x8B\xF1\x83\xB9\x98\x00\x00\x00\x00'), 0))
-        while mm.read(1) != b"\xC3":
-            mm.seek(mm.tell()-2)
-        io = pe.get_rva_from_offset(mm.tell())
-        mm.seek(mm.find((b'\x4E\x0C\x00\x00\x48'), 0)+7)
-        s = tohex(-(pe.get_rva_from_offset(mm.tell())-io+4), 32)[2:].upper()
-        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
-        patches(mm.tell(), mm.read(2), result, 1)
+    title("Force BIO2 (KFC) IO in Valkyrie mode", "Will only work with <spec __type=\\\"str\\\">F</spec> changed to either G or H, in ea3-config.xml.")
+    find_pattern("18 48 8B F1 83 B9 98 00 00 00 00", 0x300000)
+    find_pattern_backwards("C3")
+    io = pe.get_rva_from_offset(pos())
+    find_pattern("4E 0C 00 00 48", 0x300000, 7)
+    patch(struct.pack('<i', io - pe.get_rva_from_offset(pos()) - 4))
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Game FPS Target\",")
-        mm.seek(mm.find((b'\x40\x00\x00\x00\x00\x00\x00\x4E'), 0)+6)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(2).hex().upper(), "Default", None)
-        fps = (120, 144, 165, 240, 360)
-        for value in fps:
-            union(f"{struct.pack('d', value).hex().upper()[10:-2]}", f"{value} FPS", None)
-        print("    ]")
-        print("},")
+    fps = (120, 144, 165, 240, 360)
+    print("{")
+    print('    type : "union",')
+    print('    name : "Game FPS Target",')
+    find_pattern("40 00 00 00 00 00 00 4E", 0x600000, 1)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print(f"    patches : [")
+    union(mm.read(8), "Default")
+    for value in fps:
+        union(struct.pack('<d', value), f"{value} FPS")
+    end()
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Note FPS Target\",")
-        mm.seek(mm.find((b'\x20\x66\x0F\x6E\xF0\xF3\x0F\xE6\xF6\xF2\x0F\x59'), 0)+9)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        union(mm.read(15).hex().upper(), "Default", None)
-        for value in fps:
-            union(f"909090909090B8{struct.pack('i', value).hex().upper()}F20F2AF0", f"{value} FPS", None)
-        print("    ]")
-        print("},")
+    print("{")
+    print('    type : "union",')
+    print('    name : "Note FPS Target",')
+    find_pattern("20 66 0F 6E F0 F3 0F E6 F6 F2 0F 59", 0x300000, 9)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    union(mm.read(15), "Default")
+    for value in fps:
+        union(f"909090909090B8{struct.pack('<i', value).hex()}F20F2AF0", f"{value} FPS")
+    end()
 
-        title("Force Note FPS Target", "Enable this if above is not Default")
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\x74\x09'), mm.tell()))
-        patches(mm.tell(), mm.read(2), "9090", 2)
-        while mm.read(2) != b"\x74\x5F":
-            mm.seek(mm.tell()-3)
-        mm.seek(mm.tell()-2)
-        patches(mm.tell(), mm.read(2), "9090", 2)
-        print("    ],")
-        print("},")
+    title("Force Note FPS Target", "Enable this if above is not Default")
+    start()
+    find_pattern("74 09", pos())
+    patch_multi("90 90")
+    find_pattern_backwards("74 5F", pos(), -2)
+    patch_multi("90 90")
+    end()
 
-        title("Shared mode WASAPI", "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.")
-        mm.seek(mm.find((b'\x90\xBA\x04\x00\x00\x00\x48\x8B\x0D'), 0)+2)
-        patches(mm.tell(), mm.read(1), "00", 1)
+    title("Shared mode WASAPI", "Only replaces the first audio device init attempt. Set output to 44100Hz 16bit if it doesn't work.")
+    find_pattern("90 BA 04 00 00 00 48 8B 0D", 0x400000, 2)
+    patch("00")
 
-        title("Shared mode WASAPI Valkyrie", None)
-        mm.seek(mm.find((b'\x90\xBA\x07\x00\x00\x00\x48\x8B\x0D'), 0)+2)
-        patches(mm.tell(), mm.read(1), "00", 1)
+    title("Shared mode WASAPI Valkyrie")
+    find_pattern("90 BA 07 00 00 00 48 8B 0D", 0x400000, 2)
+    patch("00")
 
-        title("Allow non E004 cards", "Allows cards that do not have E004 card IDs (such as mifare cards) to work.")
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\x00\x8B\x11\x83\xFA\x01\x75'), 0)+6)
-        patches(mm.tell(), mm.read(2), "9090", 2)
-        mm.seek(mm.find((b'\x74'), mm.tell()))
-        patches(mm.tell(), mm.read(1), "EB", 2)
-        print("    ],")
-        print("},")
+    title("Allow non E004 cards", "Allows cards that do not have E004 card IDs (such as mifare cards) to work.")
+    start()
+    find_pattern("00 8B 11 83 FA 01 75", 0, 6)
+    patch_multi("90 90")
+    find_pattern("74", pos())
+    patch_multi("EB")
+    end()
 
-        title("Unlock All Songs", None)
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\x74\x26\x83'), 0)+1)
-        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell())+1)
-        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell())+1)
-        mm.seek(mm.find((b'\x74\x26\x83'), mm.tell()))
-        patches(mm.tell(), mm.read(2), "EB1F", 2)
-        mm.seek(mm.find((b'\x44\x0F\xB6\x74'), 0))
-        patches(mm.tell(), mm.read(6), "41BE03000000", 2)
-        print("    ],")
-        print("},")
+    title("Unlock All Songs")
+    start()
+    for search in range(4):
+        find_pattern("74 26 83", pos(), 1)
+    mm.seek(pos() - 1)
+    patch_multi("EB 1F")
+    find_pattern("44 0F B6 74")
+    patch_multi("41 BE  03 00 00 00")
+    end()
 
-        title("Unlock All Difficulties", None)
-        mm.seek(mm.find((b'\x00\x00\xC7\x40\x30\x04\x00\x00\x00\xE8'), 0))
-        mm.seek(mm.find((b'\x00\x00\x75'), mm.tell())+2)
-        patches(mm.tell(), mm.read(1), "EB", 1)
+    title("Unlock All Difficulties")
+    find_pattern("00 00 C7 40 30 04 00 00 00 E8", 0x200000)
+    find_pattern("00 00 75", pos(), 2)
+    patch("EB")
 
-        title("Enable S-CRITICAL in Light Start", "Only in Valkyrie mode")
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\xA8\x00\x00\x00\x48\x83\xC4\x20\x5B\xC3\x48\x83\xEC\x28'), 0))
-        mm.seek(mm.find((b'\x00\x00\x74'), mm.tell())+2)
-        patches(mm.tell(), mm.read(2), "9090", 2)
-        mm.seek(mm.find((b'\x74\x20\x48'), mm.tell()))
-        patches(mm.tell(), mm.read(2), "9090", 2)
-        start = mm.tell()
-        mm.seek(mm.find((b'\x00\x00\x74\x04'), mm.tell())+2)
-        end = mm.tell()
-        if end-start < 0xE00:
-            patches(mm.tell(), mm.read(2), "9090", 2)
-        print("    ],")
-        print("},")
+    title("Enable S-CRITICAL in Light Start", "Only in Valkyrie mode")
+    start()
+    find_pattern("A8 00 00 00 48 83 C4 20 5B C3 48 83 EC 28", 0x60000)
+    find_pattern("00 00 74", pos(), 2)
+    patch_multi("90 90")
+    find_pattern("74 20 48", pos())
+    patch_multi("90 90")
+    start_pos = pos()
+    find_pattern("00 00 74 04", pos(), 2)
+    end_pos = pos()
+    if end_pos - start_pos < 0xE00:
+        patch_multi("90 90")
+    end()
 
-        title("Uncensor album jackets (for K region only)", None)
-        mm.seek(mm.find(str.encode('jacket_mask'), 0)+8)
-        patches(mm.tell(), mm.read(1), "75", 1)
+    title("Uncensor album jackets (for K region only)")
+    find_pattern(str.encode('jacket_mask'), 0x600000, 8)
+    patch("75")
 
-        title("Hide all bottom text", None)
-        mm.seek(mm.find(str.encode('credit_service'), 0)+0x16)
-        patches(mm.tell(), mm.read(0x192), "00"*0x192, 1)
+    title("Hide all bottom text")
+    find_pattern(str.encode('credit_service'), 0x600000, 22)
+    patch("00" * 0x192)
 
-        title("Disable subscreen in Valkyrie mode", None)
-        mm.seek(mm.find((b'\x83\xBD\xB8\x00\x00\x00\x02'), 0)+15)
-        rsp_offset = mm.read(1)
-        mm.seek(mm.tell()-16)
-        patches(mm.tell(), mm.read(16), f"41B60044887424{rsp_offset.hex()}9090909090909090", 1)
+    title("Disable subscreen in Valkyrie mode")
+    find_pattern("83 BD B8 00 00 00 02", 0x300000, 15)
+    rsp_offset = mm.read(1)
+    mm.seek(pos() - 16)
+    patch(f"41B60044887424{rsp_offset.hex()}9090909090909090")
 
-        title("Timer freeze", None)
-        mm.seek(mm.find((b'\x00\x8B\x83\x80\x00\x00\x00\x85\xC0\x0F\x84'), 0)+10)
-        patches(mm.tell(), mm.read(1), "85", 1)
+    title("Timer freeze")
+    find_pattern("00 8B 83 80 00 00 00 85 C0 0F 84", 0x50000, 10)
+    patch("85")
 
-        title("Premium timer freeze", None)
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\x06\x0F\x85\x84\x00\x00\x00\x8B'), 0)+1)
-        patches(mm.tell(), mm.read(2), "90E9", 2)
-        mm.seek(mm.find((b'\x00\x0F\x84\x83\x00\x00\x00\x8B\x05'), 0x190000)+1)
-        patches(mm.tell(), mm.read(2), "90E9", 2)
-        mm.seek(mm.find((b'\x20\x01\x00\x00\xC6\x80\xE9'), 0))
-        mm.seek(mm.find((b'\x75\x0D\xE8'), mm.tell()))
-        patches(mm.tell(), mm.read(1), "EB", 2)
-        print("    ],")
-        print("},")
+    title("Premium timer freeze")
+    start()
+    find_pattern("06 0F 85 84 00 00 00 8B", 0x200000, 1)
+    patch_multi("90 E9")
+    find_pattern("00 0F 84 83 00 00 00 8B 05", 0x200000, 1)
+    patch_multi("90 E9")
+    find_pattern("20 01 00 00 C6 80 E9", 0x100000)
+    find_pattern("75 0D E8", pos())
+    patch_multi("EB")
+    end()
 
-        title("Hide premium guide banner", "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr")
-        mm.seek(mm.find(str.encode('pt_sousa_usr'), 0))
-        pt = pe.get_rva_from_offset(mm.tell())
-        mm.seek(mm.find((b'\x00\x44\x89\x44\x24\x28\x48\x8D\x45'), 0))
-        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
-        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
-        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1))
-        mm.seek(mm.find((b'\x45\x33\xC0'), mm.tell()+1)+6)
-        s = tohex(-(pe.get_rva_from_offset(mm.tell())-pt+4), 32)[2:].upper()
-        result = "".join(map(str.__add__, ("0"+s)[-2::-2] ,("0"+s)[-1::-2])).upper()
-        patches(mm.tell(), mm.read(3), result, 1)
+    title("Hide premium guide banner", "blpass_ef (rainbow outline on health gauge) is shown instead of pt_sousa_usr")
+    find_pattern(str.encode('pt_sousa_usr'))
+    pt = pe.get_rva_from_offset(pos())
+    find_pattern("00 44 89 44 24 28 48 8D 45", 0x200000)
+    for search in range(4):
+        find_pattern("45 33 C0", pos(), 6)
+    patch(struct.pack('<i', pt - pe.get_rva_from_offset(pos()) - 4))
 
-        print("{")
-        print("    type : \"union\",")
-        print("    name : \"Premium Time Length\",")
-        mm.seek(mm.find((b'\xB8\x00\x70\xC9\xB2\x8B\x00\x00\x00\x48'), 0)+1)
-        print(f"    offset : 0x{hex(mm.tell())[2:].upper()},")
-        print("    patches : [")
-        def premium(seconds, name, tip):
-            result = seconds*1000000000 if seconds != 0 else 6666666
-            union(f"{struct.pack('q', result).hex().upper()}", name, tip)
-        for seconds in (0, 1, 817, 3450):
-            m, s = divmod(seconds, 60)
-            premium(seconds, f'{m:02d}:{s:02d}', "Use with freeze")
-        for minutes in (10, 15, 20, 30, 45, 60, 90):
-            premium(minutes*60, f"{minutes} Minutes", "Default" if minutes == 10 else None)
-        print("    ]")
-        print("},")
+    print("{")
+    print('    type : "union",')
+    print('    name : "Premium Time Length",')
+    find_pattern("B8 00 70 C9 B2 8B 00 00 00 48", 0x250000, 1)
+    print(f"    offset : 0x{hex(pos())[2:].upper()},")
+    print("    patches : [")
+    def premium(seconds, name, tip):
+        result = seconds*1000000000 if seconds != 0 else 6666666
+        union(struct.pack('q', result), name, tip)
+    for seconds in (0, 1, 817, 3450):
+        m, s = divmod(seconds, 60)
+        premium(seconds, f'{m:02d}:{s:02d}', "Use with freeze")
+    for minutes in (10, 15, 20, 30, 45, 60, 90):
+        premium(minutes*60, f"{minutes} Minutes", "Default" if minutes == 10 else None)
+    end()
 
-        title("SDVX PLUS", None)
-        print(f"    patches: [")
-        mm.seek(mm.find((b'\x76\x04\x44\x89\x51\x18'), 0)+2)
-        patches(mm.tell(), mm.read(4), "90909090", 2)
-        mm.seek(mm.find((b'\x00\x48\x8B\xDA\x4C\x8B\xF1\x48\x8D'), 0))
-        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
-        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
-        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
-        mm.seek(mm.find((b'\x00\xFF\x15'), mm.tell())+1)
-        patches(mm.tell(), mm.read(6), "41C646055890", 2)
-        mm.seek(mm.find(str.encode('/data/others/music_db.xml'), 0)+1)
-        patches(mm.tell(), mm.read(4), "706C7573", 2)
-        mm.seek(mm.find(str.encode('/data/music'), 0)+1)
-        patches(mm.tell(), mm.read(4), "706C7573", 2)
-        mm.seek(mm.find(str.encode('game_bg/gmbg_edp2016.ifs'), 0))
-        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F656470323031362E696673000000", 2)
-        mm.seek(mm.find(str.encode('game_bg/gmbg_kac5th_small.ifs'), 0))
-        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6B61633574685F732E6966730000", 2)
-        mm.seek(mm.find(str.encode('game_bg/gmbg_omega18_maxma.ifs'), 0))
-        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D65676131385F6D2E69667300", 2)
-        mm.seek(mm.find(str.encode('game_bg/gmbg_omega_nianoa.ifs'), 0))
-        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D6567615F6E2E696673000000", 2)
-        mm.seek(mm.find((b'\x73\x5F\x6A\x61\x63\x6B\x65\x74\x30'), 0))
-        for n in range(1, 20):
-            try:
-                mm.seek(mm.find(str.encode(f's_jacket{str(n).zfill(2)}.ifs'), 0)+8)
-                if mm.tell() > 0x1000:
-                    patches(mm.tell(), mm.read(2), "3030", 2)
-            except ValueError:
-                continue
-        mm.seek(mm.find(str.encode('game_bg/gmbg_diver_02_rishna.ifs'), 0))
-        patches(mm.tell(), mm.read(0x28), "2E2E2F2E2E2F706C75732F672F676D62675F64697665725F30325F726973686E612E696673000000", 2)
-        mm.seek(mm.find(str.encode('game_bg/gmbg_omega_inoten.ifs'), 0))
-        patches(mm.tell(), mm.read(0x20), "2E2E2F2E2E2F706C75732F672F676D62675F6F6D6567615F696E6F2E69667300", 2)
-        print("    ],")
-        print("},")
+    title("SDVX PLUS")
+    start()
+    find_pattern("76 04 44 89 51 18", 0x150000, 2)
+    patch_multi("90" * 4)
+    find_pattern("00 48 8B DA 4C 8B F1 48 8D", pos())
+    for search in range(4):
+        find_pattern("00 FF 15", pos(), 1)
+    patch_multi("41 C6 46 05 58 90")
+    find_pattern(str.encode('/data/others/music_db.xml'), 0x600000, 1)
+    patch_multi(str.encode('plus'))
+    find_pattern(str.encode('/data/music'), 0x600000, 1)
+    patch_multi(str.encode('plus'))
+    find_pattern(str.encode('game_bg/gmbg_edp2016.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_edp2016.ifs') + b'\x00' * 3)
+    find_pattern(str.encode('game_bg/gmbg_kac5th_small.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_kac5th_s.ifs') + b'\x00' * 2)
+    find_pattern(str.encode('game_bg/gmbg_omega18_maxma.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_omega18_m.ifs') + b'\x00')
+    find_pattern(str.encode('game_bg/gmbg_omega_nianoa.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_omega_n.ifs') + b'\x00' * 3)
+    find_pattern("73 5F 6A 61 63 6B 65 74 30", 0x600000)
+    for n in range(1, 20):
+        try:
+            find_pattern(str.encode(f's_jacket{str(n).zfill(2)}.ifs'), 0, 8)
+            if mm.tell() > 0x1000:
+                patch_multi("30 30")
+        except ValueError:
+            continue
+    find_pattern(str.encode('game_bg/gmbg_diver_02_rishna.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_diver_02_rishna.ifs') + b'\x00' * 3)
+    find_pattern(str.encode('game_bg/gmbg_omega_inoten.ifs'), 0x600000)
+    patch_multi(str.encode('../../plus/g/gmbg_omega_ino.ifs') + b'\x00')
+    end()

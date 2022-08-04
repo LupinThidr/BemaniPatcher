@@ -28,17 +28,28 @@ def patch_if_match(off, on):
     else:
         mm.seek(pos() - off_len)
 
-def patch(on, single = True):
+def patch(on):
     offset = pos()
-    on = on.replace(" ", "")
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
     off = mm.read(int(len(on) / 2))
     on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
     off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
-    if single:
-        print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
-        print("},")
-    else:
-        print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
+    print(f"    patches: [{{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }}],")
+    print("},")
+
+def patch_multi(on):
+    offset = pos()
+    try:
+        on = on.replace(" ", "")
+    except TypeError:
+        on = on.hex()
+    off = mm.read(int(len(on) / 2))
+    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(off.hex()), 2)]))
+    off_formatted = '[%s]' % ', '.join(map(str, ["0x"+(off.hex().upper()[i:i+2]) for i in range(0, len(off.hex()), 2)]))
+    print(f"        {{ offset: 0x{hex(offset)[2:].upper()}, off: {off_formatted}, on: {on_formatted} }},")
 
 def start():
     print(f"    patches: [")
@@ -48,7 +59,12 @@ def end():
     print("},")
 
 def union(on, name, tooltip = None):
-    on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
+    try:
+        on = on.replace(" ", "")
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
+    except TypeError:
+        on = on.hex()
+        on_formatted = '[%s]' % ', '.join(map(str, ["0x"+(on[i:i+2].upper()) for i in range(0, len(on), 2)]))
     print("        {")
     print(f'            name : "{name}",')
     if tooltip is not None:
@@ -57,7 +73,11 @@ def union(on, name, tooltip = None):
     print("        },")
 
 def tobytes(val):
-    return bytes.fromhex(val.replace(" ", ""))
+    try:
+        return bytes.fromhex(val.replace(" ", ""))
+    except TypeError:
+        val = val.hex()
+        return bytes.fromhex(val.replace(" ", ""))
 
 def pos():
     return mm.tell()
@@ -82,9 +102,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     title("Hide Background Color Banners on Song List")
     start()
     while True:
-        find_pattern("6C 69 73 74 62 5F", pos(), 5)
-        if int(pos() - 2) > 1000:
-            patch("00", False)
+        find_pattern(str.encode('listb_'), pos(), 5)
+        if int(pos()) > 1000:
+            patch_multi("00")
         else:
             break
     end()
@@ -126,26 +146,26 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     tdj = pe.get_rva_from_offset(pos())
     find_pattern("00 48 C7 45 20 FE FF FF FF 48 89", pos())
     find_pattern("0F 84", pos())
-    patch("90 E9", False)
+    patch_multi("90 E9")
     find_pattern("C1 43 0C 83 F8 01 75 0B 48 8B 4D 98 48 8B 01", pos())
     find_pattern("00 00 00 E8", pos(), 4)
-    patch(struct.pack('<i', tdj - pe.get_rva_from_offset(pos()) - 4).hex(), False)
+    patch_multi(struct.pack('<i', tdj - pe.get_rva_from_offset(pos()) - 4))
     end()
 
     title("Lightning Mode Camera Crash Fix (for spicetools)")
     find_pattern("FF 0F 84 8D 00 00 00", 0x300000, 1)
     patch("90" * 6)
 
-    title("Force LDJ Software Video Decoder for All Boot Modes", None)
+    title("Force LDJ Software Video Decoder for All Boot Modes")
     find_pattern("FF 0F 84 8D 00 00 00", 0x350000, -3)
     patch_if_match("02", "05")
 
     title("Force Custom Timing and Adapter Mode in LDJ (Experimental)", "Enable this if the patch below is not default")
     start()
     find_pattern("0F 5B F6 75 0C", 0x250000, 3)
-    patch("EB", False)
+    patch_multi("EB")
     find_pattern("B8 3C 00 00 00 74 03", 0x250000, 5)
-    patch("90 90", False)
+    patch_multi("90 90")
     end()
 
     fps = (60, 120, 144, 165, 240, 360)
@@ -156,8 +176,7 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
     for val in fps:
-        packed = struct.pack('<H', val).hex().upper()
-        union(packed, f"{val} FPS", "Default" if val == 60 else "Lightning" if val == 120 else None)
+        union(struct.pack('<H', val), f"{val} FPS", "Default" if val == 60 else "Lightning" if val == 120 else None)
     end()
 
     print("{")
@@ -167,8 +186,8 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
     for val in fps:
-        packed = struct.pack('<I', val).hex().upper()
-        union(f"C745DB{packed}C7450B02000000488B45D74889450FC745D701000000C745DB{packed}", f"{val} FPS", "Default" if val == 120 else None)
+        packed = struct.pack('<I', val).hex()
+        union(f"C7 45 DB {packed} C7 45 0B 02 00 00 00 48 8B 45 D7 48 89 45 0F C7 45 D7 01 00 00 00 C7 45 DB{packed}", f"{val} FPS", "Default" if val == 120 else None)
     end()
 
     print("{")
@@ -179,11 +198,10 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
     for val in fps[1:]:
-        packed = struct.pack('<H', val).hex().upper()
-        union(packed, f"{val} FPS", "Default" if val == 120 else None)
+        union(struct.pack('<H', val), f"{val} FPS", "Default" if val == 120 else None)
     end()
 
-    title("Skip Monitor Check", None)
+    title("Skip Monitor Check")
     find_pattern("39 87 88 00 00 00 0F 8C", 0x350000, 7)
     patch("8D")
 
@@ -193,10 +211,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("44 8B 91 48 0B 00 00 44 8B CA 4C 8B D9 41 81 C2 67 01 00 00 B8 B7 60 0B B6 0F 57", 0x350000)
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
-    union(mm.read(27).hex().upper(), "Default")
+    union(mm.read(27), "Default")
     for val in fps[1:]:
-        packed = struct.pack('<d', val).hex().upper()
-        union(f"48B8{packed}66480F6EC0F20F58C8C3CCCCCCCCCCCCCC", f"{val}.0000 FPS")
+        union(f"48 B8 {struct.pack('<d', val).hex()} 66 48 0F 6E C0 F2 0F 58 C8 C3 CC CC CC CC CC CC CC", f"{val}.0000 FPS")
     end()
 
     print("{")
@@ -217,6 +234,10 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("4D 03 C8 49 F7 F1 89", 0x400000)
     patch("90" * 6)
 
+    title("Force Max V-Discs", "Infinite leggendaria plays in pfree")
+    find_pattern("CC 4D 85 C0 0F 84 72 01 00 00", 0x250000, 4)
+    patch("90 E9")
+
     title("Enable 1P Premium Free")
     find_pattern("48 89 44 24 50 33 FF", 0x200000)
     find_pattern("FF 84 C0 75 14 E8", pos(), 3)
@@ -226,14 +247,16 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     start()
     find_pattern("BA 01 00 00 00", pos())
     find_pattern_backwards("84 C0", pos())
-    patch("90 90", False)
+    patch_multi("90 90")
     find_pattern("74", pos())
-    patch("90 90", False)
+    patch_multi("90 90")
     end()
 
     title("Enable ARENA")
-    find_pattern("84 C0 74", pos(), 2)
-    patch("90 90")
+    find_pattern("83 F8 01 75", pos(), 3)
+    patch_multi("90 90")
+    find_pattern("FF 84 C0 74", pos(), 3)
+    patch_multi("90 90")
 
     title("Enable BPL BATTLE")
     find_pattern("74", pos())
@@ -242,9 +265,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     title("All Notes Preview 12s")
     start()
     find_pattern("05 00 00 00 84 C0", 0x250000)
-    patch("0C", False)
+    patch_multi("0C")
     find_pattern("05 00 00 00 84 C0", pos())
-    patch("0C", False)
+    patch_multi("0C")
     end()
 
     title("Dark Mode")
@@ -308,16 +331,16 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("44 0F 45 C8 48 8D 05", 0x200000, 7)
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
-    union(mm.read(4).hex().upper(), "FREE PLAY", "Default")
-    union(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos()) + 4).hex(), "Song Title/Ticker information")
+    union(mm.read(4), "FREE PLAY", "Default")
+    union(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos()) + 4), "Song Title/Ticker information")
 
     find_pattern("44 0F 45 C8 48 8D 05", 0x200000, 7)
-    union(struct.pack('<i', hidden - pe.get_rva_from_offset(pos()) - 4).hex(), "Hide")
+    union(struct.pack('<i', hidden - pe.get_rva_from_offset(pos()) - 4), "Hide")
     end()
 
     title("Reroute PASELI: ****** Text To Song Title/Ticker Information")
     find_pattern("00 EB 17 4C 8D 05", 0x200000, 6)
-    patch(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos())).hex())
+    patch(struct.pack('<i', absolute_ticker_offset - pe.get_rva_from_offset(pos())))
 
     title("Debug Mode", "While in game, press F1 to enable menu.  (Disables Profile/Score saving)")
     find_pattern("C3 CC CC CC 32 C0 C3 CC CC CC CC CC CC CC CC CC CC CC CC CC", 0x300000, 4)
@@ -326,9 +349,9 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     title("Increase 'All Factory Settings' Buffer", "Enable this if the option below is not default")
     start()
     find_pattern("FE FF FF FF B9 48 01 00 00 E8", 0x300000, 5)
-    patch("22 61 14 00", False)
+    patch_multi("22 61 14 00")
     find_pattern("48 8B EA BA 48 01 00 00 48", 0x600000, 4)
-    patch("22 61 14 00", False)
+    patch_multi("22 61 14 00")
     end()
 
     #AfpViewerScene
@@ -358,12 +381,12 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("E8", pos(), 1)
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
-    union(mm.read(4).hex().upper(), "TestAllFactorySettingsScene", "Default")
+    union(mm.read(4), "TestAllFactorySettingsScene", "Default")
     here = pe.get_rva_from_offset(pos())
-    union(struct.pack('<i', afp - here).hex(), "AfpViewerScene")
-    union(struct.pack('<i', qpro - here).hex(), "QproViewerScene")
-    union(struct.pack('<i', viewer - here).hex(), "SoundViewerScene")
-    union(struct.pack('<i', qc - here).hex(), "TestICCardQCScene")
+    union(struct.pack('<i', afp - here), "AfpViewerScene")
+    union(struct.pack('<i', qpro - here), "QproViewerScene")
+    union(struct.pack('<i', viewer - here), "SoundViewerScene")
+    union(struct.pack('<i', qc - here), "TestICCardQCScene")
     end()
 
     #CustomizeViewerScene
@@ -388,33 +411,33 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     find_pattern("C8 E8", pos(), 2)
     print(f"    offset : 0x{hex(pos())[2:].upper()},")
     print("    patches : [")
-    union(mm.read(4).hex().upper(), "TestIOCheckQrCheckScene", "Default")
+    union(mm.read(4), "TestIOCheckQrCheckScene", "Default")
     here = pe.get_rva_from_offset(pos())
-    union(struct.pack('<i', custom - here).hex(), "CustomizeViewerScene")
-    union(struct.pack('<i', ranking - here).hex(), "SoundRankingViewerScene")
-    union(struct.pack('<i', system - here).hex(), "SystemSoundViewerScene")
+    union(struct.pack('<i', custom - here), "CustomizeViewerScene")
+    union(struct.pack('<i', ranking - here), "SoundRankingViewerScene")
+    union(struct.pack('<i', system - here), "SystemSoundViewerScene")
     end()
 
-    title("Auto Play", None)
+    title("Auto Play")
     find_pattern("FD FF 33 C9 C6 80", 0x200000, 10)
     patch_if_match("00", "01")
 
-    title("Omnimix", None)
+    title("Omnimix")
     start()
     find_pattern("C3 CC CC CC CC CC CC CC CC CC 40 53 48 83 EC 20 0F B6 D9 E8 22 01 00 00 84 C0 74 14 0F B6 CB E8 16 00 00 00 84 C0 74 08 B0 01 48 83 C4 20 5B C3 32 C0 48 83 C4 20 5B C3", 0x300000)
-    patch("C6 47 05 58 C3", False)
+    patch_multi("C6 47 05 58 C3")
     find_pattern("66 39 48 08 7F", 0x300000, 4)
-    patch("90 90", False)
-    find_pattern("6D 64 61 74 61 2E 69 66 73", 0x600000, 4)
-    patch("6F", False)
-    find_pattern("6D 75 73 69 63 5F 64 61 74 61 2E 62 69 6E", 0x600000, 6)
-    patch("6F 6D 6E 69", False)
-    find_pattern("6D 75 73 69 63 5F 74 69 74 6C 65 5F 79 6F 6D 69 2E 78 6D 6C", 0x600000, 12)
-    patch("6F 6D 6E 69", False)
-    find_pattern("6D 75 73 69 63 5F 61 72 74 69 73 74 5F 79 6F 6D 69 2E 78 6D 6C", 0x600000, 13)
-    patch("6F 6D 6E 69", False)
-    find_pattern("76 69 64 65 6F 5F 6D 75 73 69 63 5F 6C 69 73 74 2E 78 6D 6C", 0x600000, 12)
-    patch("6F 6D 6E 69", False)
+    patch_multi("90 90")
+    find_pattern(str.encode('mdata.ifs'), 0x600000, 4)
+    patch_multi(str.encode('o'))
+    find_pattern(str.encode('music_data.bin'), 0x600000, 6)
+    patch_multi(str.encode('omni'))
+    find_pattern(str.encode('music_title_yomi.xml'), 0x600000, 12)
+    patch_multi(str.encode('omni'))
+    find_pattern(str.encode('music_artist_yomi.xml'), 0x600000, 13)
+    patch_multi(str.encode('omni'))
+    find_pattern(str.encode('video_music_list.xml'), 0x600000, 12)
+    patch_multi(str.encode('omni'))
     find_pattern("7C ED 32 C0 C3", 0x200000, 2)
-    patch("B0 01", False)
+    patch_multi("B0 01")
     end()
