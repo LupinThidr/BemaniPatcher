@@ -183,7 +183,7 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
 
     title("Hide all bottom text")
     find_pattern(str.encode('credit_service'), 0x600000, 22)
-    patch("00" * 0x192)
+    patch("00" * 0x1C2)
 
     title("Disable subscreen in Valkyrie mode")
     find_pattern("83 BD B8 00 00 00 02", 0x300000, 15)
