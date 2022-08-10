@@ -168,8 +168,7 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
     patch_multi("90 90")
     find_pattern("74", pos())
     patch_multi("90 90")
-    print("    ],")
-    print("},")
+    end()
 
     title("Hide all bottom text", "Such as EVENT MODE, PASELI, COIN, CREDIT, MAINTENANCE")
     find_pattern("45 56 45 4E 54 20 4D 4F 44 45", 0x125000)

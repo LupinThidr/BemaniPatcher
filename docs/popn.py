@@ -105,7 +105,7 @@ with open('popn22.dll', 'r+b') as popn22:
     mm.seek(0x200000)
     while True:
         find_pattern("80 00 00 03", pos(), 1)
-        if int(mm.tell()-2) > 0x200000:
+        if int(pos()-2) > 0x200000:
             mm.seek(pos() -1)
             patch_multi("00")
         else:
@@ -113,7 +113,7 @@ with open('popn22.dll', 'r+b') as popn22:
     mm.seek(0x200000)
     while True:
         find_pattern("80 00 00 07", pos(), 1)
-        if int(mm.tell()-2) > 0x200000:
+        if int(pos()-2) > 0x200000:
             mm.seek(pos() -1)
             patch_multi("00")
         else:

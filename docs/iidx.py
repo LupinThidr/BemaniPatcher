@@ -253,10 +253,12 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
     end()
 
     title("Enable ARENA")
+    start()
     find_pattern("83 F8 01 75", pos(), 3)
     patch_multi("90 90")
     find_pattern("FF 84 C0 74", pos(), 3)
     patch_multi("90 90")
+    end()
 
     title("Enable BPL BATTLE")
     find_pattern("74", pos())

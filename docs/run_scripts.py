@@ -11,27 +11,27 @@ import time
 games = [
     {
         'script': 'ddr',
-        'title': 'DDR A20 PLUS',
+        'title': 'DDR A3',
         'dll': 'gamemdx',
-        'html': 'ddra20plus.html',
+        'html': 'ddra3.html',
     },
     {
         'script': 'gitadora',
-        'title': 'GITADORA NEX+AGE',
+        'title': 'GITADORA HIGH-VOLTAGE',
         'dll': 'game',
-        'html': 'gitadoranextage.html',
+        'html': 'gitadorahv.html',
     },
     {
         'script': 'iidx',
-        'title': 'IIDX CastHour',
+        'title': 'IIDX RESIDENT',
         'dll': 'bm2dx',
-        'html': 'casthour.html',
+        'html': 'resident.html',
     },
     {
         'script': 'jubeat',
-        'title': 'jubeat festo',
+        'title': 'jubeat Ave.',
         'dll': 'jubeat',
-        'html': 'jubeatfesto.html',
+        'html': 'jubeatave.html',
     },
     {
         'script': 'popn',
@@ -41,7 +41,7 @@ games = [
     },
     {
         'script': 'sdvx',
-        'title': 'SDVX VI',
+        'title': 'SDVX EXCEED GEAR',
         'dll': 'soundvoltex',
         'html': 'sdvx6.html',
     },

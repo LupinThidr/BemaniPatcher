@@ -254,7 +254,7 @@ with open('soundvoltex.dll', 'r+b') as soundvoltex:
     for n in range(1, 20):
         try:
             find_pattern(str.encode(f's_jacket{str(n).zfill(2)}.ifs'), 0, 8)
-            if mm.tell() > 0x1000:
+            if pos() > 0x1000:
                 patch_multi("30 30")
         except ValueError:
             continue
