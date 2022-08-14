@@ -159,6 +159,26 @@ with open('gamemdx.dll', 'r+b') as gamemdx:
             break
     end()
 
+    title("Enable all speed modifiers", "Including x4.25/x7.75, Must have the Unlock Options patch enabled")
+    find_pattern("7C FF FF FF 7E 02", 0x90000, 4)
+    patch("EB")
+
+    title("Enable LIFE8 modifier", "Must have the Unlock Options patch enabled")
+    start()
+    find_pattern("77 1A", pos())
+    patch_multi("EB 07")
+    find_pattern("8A C3 5B 8B 4D FC", pos())
+    patch_multi("7F DC B0 01 EB DA")
+    end()
+
+    title("PFC Mode", "Like Extra Encore Stage. If you hit a Great or a Good, you lose a life. This feature requires you to select LIFE8/LIFE4/RISKY on the Options, otherwise it has no effect.")
+    find_pattern("0F 9C C0 5D C2 04 00 83 F8 04", pos())
+    patch("B0 01 90")
+
+    title("MFC Mode", "Like PFC Mode except this time no Perfects. Requires PFC Mode to be enabled.")
+    find_pattern_backwards("83 F8 02", pos(), -1)
+    patch("01")
+
     title("Hide all bottom text", "Such as EVENT MODE, PASELI, COIN, CREDIT, MAINTENANCE")
     find_pattern("45 56 45 4E 54 20 4D 4F 44 45", 0x125000)
     start_pos = pos()
