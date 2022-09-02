@@ -126,7 +126,7 @@ with open('bm2dx.dll', 'r+b') as bm2dx:
         patch("90 90")
     except ValueError:
         try:
-            find_pattern("48 83 EC 20 48 8B 11", 0x350000)
+            find_pattern("10 57 48 83 EC 20 48 8B 11", 0x400000)
             find_pattern("7D", pos())
             patch("90 90")
         except ValueError:
