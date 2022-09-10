@@ -35,9 +35,9 @@ games = [
     },
     {
         'script': 'popn',
-        'title': 'pop\'n music Kaimei Riddles',
+        'title': 'pop\'n music UniLab',
         'dll': 'popn22',
-        'html': 'popn26kaimeiriddles.html',
+        'html': 'popn27unilab.html',
     },
     {
         'script': 'sdvx',

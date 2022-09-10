@@ -1,4 +1,6 @@
 import mmap
+import pefile
+import struct
 
 def title(name, tooltip = None):
     print("{")
@@ -59,6 +61,7 @@ def pos():
 
 with open('popn22.dll', 'r+b') as popn22:
     mm = mmap.mmap(popn22.fileno(), 0)
+    pe = pefile.PE('popn22.dll', fast_load=True)
 
     title("E: Drive Fix", "Fix crash caused by no E: drive")
     find_pattern("65 3A 2F", 0x200000)
@@ -150,18 +153,26 @@ with open('popn22.dll', 'r+b') as popn22:
     start()
     find_pattern(str.encode("COLOR CHECK"), 0x190000)
     patch_multi(str.encode("CHARA VIEWER") + b"\x00")
+    find_pattern("33 C0 68 A4 06", 0x10000)
+    find_pattern_backwards("CC CC", pos())
+    chara = pe.get_rva_from_offset(pos())
     find_pattern("00 00 00 00 68 AC 00 00 00 E8", 0x20000, 5)
     patch_multi("B0 34 0C")
-    find_pattern("E8 DC FE FF", pos(), 1)
-    patch_multi("1C CD 09 00")
+    find_pattern("50 E8", pos(), 2)
+    here = pe.get_rva_from_offset(pos())
+    patch_multi(struct.pack('<i', chara - here - 4))
     end()
 
     title("Replace SCREEN CHECK test menu with debug MUSIC INFO CHECKER", "Press service button to exit")
     start()
     find_pattern(str.encode("SCREEN CHECK"), 0x190000)
     patch_multi(str.encode("MUSIC INFO") + b"\x00\x00")
+    find_pattern("33 C0 33 C9 33 D2 66 89 86 DC", 0x10000)
+    find_pattern_backwards("CC CC", pos())
+    music = pe.get_rva_from_offset(pos())
     find_pattern("00 00 00 00 68 8C 00 00 00 E8", 0x20000, 5)
     patch_multi("B0 34 0C")
-    find_pattern("E8 FC FE FF FF", pos(), 1)
-    patch_multi("AC FB 09 00")
+    find_pattern("50 E8", pos(), 2)
+    here = pe.get_rva_from_offset(pos())
+    patch_multi(struct.pack('<i', music - here - 4))
     end()
