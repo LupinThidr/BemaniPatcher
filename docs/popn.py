@@ -90,7 +90,7 @@ with open('popn22.dll', 'r+b') as popn22:
     patch_multi("EB")
     find_pattern_backwards("75 5E", pos(), -2)
     patch_multi("EB")
-    find_pattern("5F 5E 66 83 F8 01 75", 0x75000, 6)
+    find_pattern("5F 5E 66 83 F8 01 75", 0x70000, 6)
     patch_multi("EB")
     end()
 
@@ -123,17 +123,18 @@ with open('popn22.dll', 'r+b') as popn22:
             break
     end()
 
-    title("Unlock Deco Parts")
     find_pattern("83 38 00 75 22", 0x90000, 3)
-    patch("90 90")
+    if pos() > 0x1000:
+        title("Unlock Deco Parts")
+        patch("90 90")
 
     title("Unlock Characters")
-    find_pattern("A9 50 01 00 00 74", 0x90000, 5)
+    find_pattern("01 00 00 74 0E 8B FA E8", 0x90000, 3)
     patch("EB")
 
     title("Premium Free", "Score buffer never resets, use offline")
     start()
-    find_pattern("CC FE 46 0E 80 BE", 0x100000, 1)
+    find_pattern("CC FE 46 0E 80 BE", 0x90000, 1)
     patch_multi("90 90 90")
     find_pattern("75", pos())
     patch_multi("EB")
