@@ -57,9 +57,6 @@ f'''<!DOCTYPE html>
     <meta charset="utf-8" />
     <title>{g.get("title")} DLL Modder</title>
     <link rel="stylesheet" href="css/style.css" />
-    <!-- don't hate -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
-    <script type="text/javascript" src="js/FileSaver.min.js"></script>
     <script type="text/javascript" src="js/dllpatcher.js"></script>
     <script type="text/javascript">
         window.addEventListener("load", function () {{
