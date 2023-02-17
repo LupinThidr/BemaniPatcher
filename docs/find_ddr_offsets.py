@@ -139,17 +139,17 @@ for dll in Path(".").glob("gamemdx*.dll"):
         find_pattern("84 C0 75", pos(), 2)
         patch(title, "EB")
 
-        title = "Caution Screen Skip"
-        find_pattern("FF FF 8B FB C7 05", 0x10000, 2)
-        start_pos = pos()
-        find_pattern("FF FF E8", pos())
-        end_pos = pos()
-        mm.seek(start_pos)
-        patch(
-            title,
-            f"EB {hex(end_pos - start_pos)[2:]}",
-            tooltip="Breaks network score loading",
-        )
+        # title = "Caution Screen Skip"
+        # find_pattern(rb"FF FF 8B FB C7 05", 0x10000, 2)
+        # start_pos = pos()
+        # find_pattern("FF FF E8", pos())
+        # end_pos = pos()
+        # mm.seek(start_pos)
+        # patch(
+        #     title,
+        #     f"EB {hex(end_pos - start_pos)[2:]}",
+        #     tooltip="Breaks network score loading",
+        # )
 
         title = "Timer Freeze"
         find_pattern("7E 05 BE 63")
@@ -219,16 +219,26 @@ for dll in Path(".").glob("gamemdx*.dll"):
         patch(title, "90 90")
 
         title = "Force Cabinet Type 6"
-        find_pattern("77 78 ff 24 85", 0, 2)
+        find_pattern(rb"\xFF\x24\x85..\x00\x10\x8B\x45\xFC\x85\xC0")
+        start_pos = pos()
+        find_pattern("BE 06 00 00 00", pos())
+        end_pos = pos()
+        mm.seek(start_pos)
         patch(
             title,
-            "EB 71",
+            f"E9 {hex(end_pos - start_pos - 5)[2:]} 00 00 00 90 90",
             tooltip="Gold cab, some assets (such as menu background) may not work",
         )
 
         title = "Force blue menu background"
-        find_pattern("FF 83 F8 06 75", 0x10000, 4)
-        patch(title, "EB")
+        find_pattern("FE FF 83 F8 06", 0x10000, 5)
+        a = pos()
+        if mm.read(1).hex() == "75":
+            mm.seek(pos() - 1)
+            patch(title, "EB")
+        else:
+            mm.seek(pos() - 1)
+            patch(title, "90 90")
 
         title = "Enable cabinet lights for Cabinet Type 6"
         find_pattern("CC CC CC CC CC CC CC CC CC 53 E8", 0, 10)
@@ -241,7 +251,7 @@ for dll in Path(".").glob("gamemdx*.dll"):
         patch(title, "B8 00 00 00 00")
         find_pattern("00 80 7C 24 12 00 0F 85")
         find_pattern("E8", pos())
-        patch(title, "B8 00 00 00 00")
+        patch(title, "B8 01 00 00 00")
 
         title = "Enable DDR SELECTION"
         find_pattern("07 83 C0 04 3B C1 75 F5 3B C1 0F 95 C0 84 C0 75", 0x75000)
@@ -367,7 +377,7 @@ for dll in Path(".").glob("gamemdx*.dll"):
         )
 
         title = "Fullscreen FPS Target"
-        find_pattern("C7 84 24 84 00 00 00 3C 00 00 00", 0x1000, 7)
+        find_pattern("00 00 00 3C 00 00 00", 0x1000, 3)
         for fps in (60, 120, 144, 165, 240, 360):
             patch_union(title, f"{fps} FPS", struct.pack("<i", fps))
 
