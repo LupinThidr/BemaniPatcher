@@ -293,9 +293,10 @@ for dll in Path(".").glob("bm2dx*.dll"):
         )
         patch(title, "90" * 3)
 
-        ###    title("Skip Decide Screen")
-        ###    find_pattern("8B F8 E8 6B 00 00 00 48", 0x90000, 2)
-        ###    patch("90" * 5)
+        title = "Skip Decide Screen"
+        find_pattern("44 8B 44 24 58 BA 03 00 00 00", 0x90000)
+        find_pattern_backwards("48 8B C8 E8", pos(), -1)
+        patch(title, "90" * 5, tooltip="Immediately loads into chart after selection.")
 
         title = "Quick Retry"
         find_pattern(
@@ -484,6 +485,10 @@ for dll in Path(".").glob("bm2dx*.dll"):
         )
         find_pattern_backwards("0F B6 C0 85 C0", pos(), -10)
         patch(title, "B8 01 00 00 00")
+
+        title = "Quicker Quick Retry"
+        find_pattern("7C 21 48 8B 44 24 60 48 8B 00 48 89 44 24 40", 0x90000)
+        patch(title, "90" * 2, tooltip="Shortens duration of the 'stage failed' animation.")
 
         with open(dll.stem + ".json", "w") as outfile:
             json.dump(game, outfile, indent=2)
