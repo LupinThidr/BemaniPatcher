@@ -156,21 +156,21 @@ for dll in Path(".").glob("bm2dx*.dll"):
         find_pattern("C0 0F 84", pos(), 1)
         patch(title, "90 E9")
 
-        title = "Shim Lightning Mode IO (for spicetools)"
-        # find_pattern(rb'\x48.\x44\x24\x60\x48\xC7\x40\x08?\x00\x00\x00')
-        find_pattern(
-            "48 83 C4 48 C3 CC CC CC CC CC 48 89 4C 24 08 B0 01 C3 CC CC CC CC CC CC CC CC 48 89 4C 24 08 48 83 EC 58 48 C7 44 24 38 FE FF FF FF C7 44 24 20",
-            0x500000,
-            26,
-        )
-        find_pattern_backwards("CC CC", pos())
-        tdj = pe.get_rva_from_offset(pos())
-        find_pattern(rb"\x0F\xB6.\x0E.........\xE8...\xFF", pos())
-        find_pattern("01 74", pos(), 1)
-        patch(title, "EB")
-        find_pattern(rb"\x48\x8B......\x48..\x08\x48...\xD8.\x00", pos())
-        find_pattern("00 00 E8", pos(), 3)
-        patch(title, struct.pack("<i", tdj - pe.get_rva_from_offset(pos()) - 4))
+        #title = "Shim Lightning Mode IO (for spicetools)"
+        ## find_pattern(rb'\x48.\x44\x24\x60\x48\xC7\x40\x08?\x00\x00\x00')
+        #find_pattern(
+        #    "48 83 C4 48 C3 CC CC CC CC CC 48 89 4C 24 08 B0 01 C3 CC CC CC CC CC CC CC CC 48 89 4C 24 08 48 83 EC 58 48 C7 44 24 38 FE FF FF FF C7 44 24 20",
+        #    0x500000,
+        #    26,
+        #)
+        #find_pattern_backwards("CC CC", pos())
+        #tdj = pe.get_rva_from_offset(pos())
+        #find_pattern(rb"\x0F\xB6.\x0E.........\xE8...\xFF", pos())
+        #find_pattern("01 74", pos(), 1)
+        #patch(title, "EB")
+        #find_pattern(rb"\x48\x8B......\x48..\x08\x48...\xD8.\x00", pos())
+        #find_pattern("00 00 E8", pos(), 3)
+        #patch(title, struct.pack("<i", tdj - pe.get_rva_from_offset(pos()) - 4))
 
         title = "Lightning Mode Camera Crash Fix (for spicetools) / Force LDJ Software Video Decoder for All Boot Modes"
         find_pattern(rb"\x00\x00\x48\x8B...........\x78\x00\x74\x0A\xC7")
@@ -179,30 +179,58 @@ for dll in Path(".").glob("bm2dx*.dll"):
 
         title = "Force Custom Timing and Adapter Mode in LDJ (Experimental)"
         find_pattern(rb"\x24.\xE8...\x00............\x08........\x01\x75")
-        find_pattern("01 75", pos(), 1)
-        patch(title, "EB", tooltip="Enable this if the patch below is not default")
-        find_pattern(rb"\x3C\x00\x00\x00\x48..\x24.\x83", pos())
-        find_pattern("01 75", pos(), 1)
-        patch(title, "EB")
+        try:
+            find_pattern(rb"\x3C\x00\x00\x00\x48..\x24.\x83", pos())
+            find_pattern(rb"\x24.\xE8...\x00............\x08........\x01\x75")
+            find_pattern("01 75", pos(), 1)
+            patch(title, "EB", tooltip="Enable this if the patch below is not default")
+            find_pattern(rb"\x3C\x00\x00\x00\x48..\x24.\x83", pos())
+            find_pattern("01 75", pos(), 1)
+            patch(title, "EB")
+        except AttributeError:
+            find_pattern("01 75", pos(), 1)
+            patch(title, "90 90", tooltip="Enable this if the patch below is not default")
+            find_pattern("C0 75", pos(), 1)
+            patch(title, "90 90")
+            find_pattern("02 75", pos(), 1)
+            patch(title, "90 90")
+            find_pattern("C0 74", pos(), 1)
+            patch(title, "EB")
 
         fps = (60, 120, 144, 165, 240, 360)
         title = "Choose Custom LDJ Timing/Adapter FPS"
         find_pattern("40 3C 00 00 00 8B", 0, 1)
-        for val in fps:
-            patch_union(title, f"{val} FPS", struct.pack("<H", val))
+        if pos() > 0x1000:
+            for val in fps:
+                patch_union(title, f"{val} FPS", struct.pack("<H", val))
+        else:
+            find_pattern("C7 44 24 44 3C 00 00 00 8B 44 24 2C 89 84 24 10 01 00 00 48 8B 44 24 40 48 89 84 24 14 01 00 00 C7 44 24 30 02 00 00 00 C7 44 24 48 01 00 00 00 C7 44 24 4C 3C 00 00 00")
+            for val in fps:
+                packed = struct.pack("<I", val).hex()
+                patch_union(title, f"{val} FPS", f"C7 44 24 44 {packed} 8B 44 24 2C 89 84 24 10 01 00 00 48 8B 44 24 40 48 89 84 24 14 01 00 00 C7 44 24 30 02 00 00 00 C7 44 24 48 01 00 00 00 C7 44 24 4C {packed}")
+            find_pattern("75 0A", pos())
+            patch("Force Custom Timing and Adapter Mode in LDJ (Experimental)", "EB 70")
+        ldj_pos = pos()
 
         title = "Choose Custom TDJ Timing/Adapter FPS"
         find_pattern("C7 44 24 48 78 00 00 00", pos())
-        for val in fps:
-            packed = struct.pack("<I", val).hex()
-            patch_union(
-                title,
-                f"{val} FPS",
-                f"C7 44 24 48 {packed} 8B 44 24 30 89 84 24 0C 01 00 00 48 8B 44 24 44 48 89 84 24 10 01 00 00 C7 44 24 34 04 00 00 00 C7 44 24 4C 01 00 00 00 C7 44 24 50 {packed}",
-            )
+        if pos() < ldj_pos + 0x1000:
+            for val in fps:
+                packed = struct.pack("<I", val).hex()
+                patch_union(
+                    title,
+                    f"{val} FPS",
+                    f"C7 44 24 48 {packed} 8B 44 24 30 89 84 24 0C 01 00 00 48 8B 44 24 44 48 89 84 24 10 01 00 00 C7 44 24 34 04 00 00 00 C7 44 24 4C 01 00 00 00 C7 44 24 50 {packed}",
+                )
+        else:
+            find_pattern("C7 44 24 54 78 00 00 00 8B 44 24 34 89 84 24 28 01 00 00 48 8B 44 24 50 48 89 84 24 2C 01 00 00 C7 44 24 38 04 00 00 00 C7 44 24 58 01 00 00 00 C7 44 24 5C 78 00 00 00")
+            for val in fps:
+                packed = struct.pack("<I", val).hex()
+                patch_union(title, f"{val} FPS", f"C7 44 24 54 {packed} 8B 44 24 34 89 84 24 28 01 00 00 48 8B 44 24 50 48 89 84 24 2C 01 00 00 C7 44 24 38 04 00 00 00 C7 44 24 58 01 00 00 00 C7 44 24 5C {packed}")
 
         title = "Choose Fullscreen Monitor Check FPS Target"
-        find_pattern("98 0B 00 00 3C 00 00 00 C7", 0, 4)
+        find_pattern("0B 00 00 3C 00 00 00 C7", 0, 3)
+        find_pattern("0B 00 00 3C 00 00 00 C7", pos(), 3)
         for val in fps:
             patch_union(
                 title,
@@ -318,11 +346,20 @@ for dll in Path(".").glob("bm2dx*.dll"):
 
         title = "Increase Game Volume"
         find_pattern("70 FF 94 24 00 01 00 00 90 48 83", 0x400000, 1)
-        patch(
-            title,
-            "90" * 7,
-            tooltip="Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.",
-        )
+        if pos() > 0x1000:
+            patch(
+                title,
+                "90" * 7,
+                tooltip="Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.",
+            )
+        else:
+            find_pattern("8B 4C 24 78 FF 94 24 08 01 00 00", 0x400000, 4)
+            patch(
+                title,
+                "90" * 7,
+                tooltip="Ignore the in-game volume settings and use the maximum possible volume level. Especially helpful for TDJ which tends to be very quiet.",
+            )
+            
 
         try:
             find_pattern(
@@ -376,7 +413,7 @@ for dll in Path(".").glob("bm2dx*.dll"):
         )
 
         title = "Reroute PASELI: ****** Text To Song Title/Ticker Information"
-        find_pattern("B1 00 EB 1A 4C 8D 05", 0x200000, 7)
+        find_pattern("EB 1A 4C 8D", 0x200000, 5)
         patch(
             title,
             struct.pack("<i", absolute_ticker_offset - pe.get_rva_from_offset(pos())),
