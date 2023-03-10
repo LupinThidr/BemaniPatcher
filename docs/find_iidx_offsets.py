@@ -293,9 +293,10 @@ for dll in Path(".").glob("bm2dx*.dll"):
         )
         patch(title, "90" * 3)
 
-        ###    title("Skip Decide Screen")
-        ###    find_pattern("8B F8 E8 6B 00 00 00 48", 0x90000, 2)
-        ###    patch("90" * 5)
+        title = "Skip Decide Screen"
+        find_pattern("44 8B 44 24 58 BA 03 00 00 00", 0x90000)
+        find_pattern_backwards("48 8B C8 E8", pos(), -1)
+        patch(title, "90" * 5, tooltip="Immediately loads into chart after selection.")
 
         title = "Quick Retry"
         find_pattern(
